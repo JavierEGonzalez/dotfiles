@@ -1,0 +1,23 @@
+[filter "lfs"]
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+[user]
+	name = JavierEGonzalez
+	email = javier.gonzalez1@adusa.com
+[core]
+	excludesFile = ~/.scratch/.gitignore
+	editor = nvim
+[diff]
+	tool = nvimdiff
+[difftool]
+	prompt = true
+[merge]
+	tool = nvimdiff
+	conflictstyle = diff3
+[mergetool]
+  prompt = true
+  cmd = nvim -d $BASE $LOCAL $REMOTE $MERGED -c
+
+
