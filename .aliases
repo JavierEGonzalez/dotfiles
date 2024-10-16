@@ -1,0 +1,37 @@
+srch() {
+  local target_dir
+  if [ $# -eq 1 ]; then
+    target_dir=$PWD
+  elif [ $# -eq 2 ]; then
+    target_dir=$2
+  fi
+
+  echo "grep -Rn --color=auto --exclude-dir={node_modules,bin,dist,css,qa-build,build,nginx-env,shop/frags,coverage} '$1' $target_dir;"
+  echo "searching for string '$1' in $target_dir";
+  grep -Rn --color=auto --exclude-dir={node_modules,bin,dist,css,qa-build,build,nginx-env,shop/frags,coverage} "$1" "$target_dir";
+}
+
+set VIM_DEFAULT=vim
+
+alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
+
+alias gc='bash ~/.scratch/git_commit.sh'
+alias gcp='bash ~/.scratch/git_commit_prev_ticket.sh'
+alias cb='bash ~/.scratch/checkout-branch.sh'
+
+alias lvim=~/.local/bin/lvim
+
+alias rd='yarn run dev'
+alias rt='yarn run test:unit'
+
+alias gtn='cd ~/workspace/nuclei/'
+alias gtncl='cd ~/workspace/nuclei/'
+
+alias gtcl='cd ~/workspace/pdl-web-frontend-prism-client/'
+alias gtsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/'
+
+alias vncl="cd ~/workspace/nuclei && nvim"
+
+alias nv='nvim'
+alias v='nvim'
+
