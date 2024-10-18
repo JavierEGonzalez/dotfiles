@@ -11,6 +11,11 @@ srch() {
   grep -Rn --color=auto --exclude-dir={node_modules,bin,dist,css,qa-build,build,nginx-env,shop/frags,coverage} "$1" "$target_dir";
 }
 
+# needs fzf enabled
+vf() {
+  nvim $(fzf)
+}
+
 set VIM_DEFAULT=vim
 
 alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
@@ -33,5 +38,6 @@ alias gtsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/'
 alias vncl="cd ~/workspace/nuclei && nvim"
 
 alias nv='nvim'
+
 alias v='nvim'
 

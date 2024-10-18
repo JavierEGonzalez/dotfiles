@@ -8,17 +8,23 @@ map('n', '<leader>wq', ':wq<cr>', { noremap = true, silent = false })
 map('n', '<leader>qq', ':wq<cr>', { noremap = true, silent = false })
 map('n', '<leader>Q', ':wqall!<cr>', { noremap = true, silent = false })
 map('n', '<leader>QQ', ':wqall!<cr>', { noremap = true, silent = false })
+
+-- go to [m]atching [p]arenthesis
 map('n', '<leader>mp', '%', { noremap = true, silent = false })
+map('v', '<leader>mp', '%', { noremap = true, silent = false })
+
+-- go to [m]atching Bracket
+map('n', 'M', '%', { noremap = true, silent = false })
+map('v', 'M', '%', { noremap = true, silent = false })
+
 map('n', '<leader><C-w>', ':close<cr>', { noremap = true, silent = false })
 map('n', '>', '>>', { noremap = true, silent = false })
 map('n', '<', '<<', { noremap = true, silent = false })
+map('n', '<leader>y', '\"+y', { noremap = true, silent = false })
+map('v', '<leader>y', '\"+y', { noremap = true, silent = false })
 
 -- toggle Ntree (Lexplore) 25 characters wide
 map('n', '`', ':25Lexplore<cr>', { noremap = true, silent = false })
-
--- common typing mistakes
-vim.api.nvim_command(':command WQ wq')
-vim.api.nvim_command(':command Wq wq')
 
 vim.api.nvim_create_autocmd('filetype', {
   pattern = 'netrw',
@@ -33,6 +39,7 @@ vim.api.nvim_create_autocmd('filetype', {
 
     -- rename file
     bind('r', 'R')
+    bind('o', 'R')
   end
 })
 

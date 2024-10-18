@@ -1,21 +1,26 @@
+[push]
+  autoSetupRemote = true
 [filter "lfs"]
-	smudge = git-lfs smudge -- %f
-	process = git-lfs filter-process
-	required = true
-	clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
+  clean = git-lfs clean -- %f
 [user]
-	name = JavierEGonzalez
-	email = javier.gonzalez1@adusa.com
+  name = JavierEGonzalez
+  email = javier.gonzalez1@adusa.com
 [core]
-	excludesFile = ~/.scratch/.gitignore
-	editor = nvim
+  excludesFile = ~/.scratch/.gitignore
+  editor = nvim
+[core]
+  excludesFile = ~/.scratch/.gitignore
+  editor = nvim
 [diff]
-	tool = nvimdiff
+  tool = nvimdiff
 [difftool]
-	prompt = true
+  prompt = true
 [merge]
-	tool = nvimdiff
-	conflictstyle = diff3
+  tool = nvimdiff
+  conflictstyle = diff3
 [mergetool]
   prompt = true
   cmd = nvim -d $BASE $LOCAL $REMOTE $MERGED -c
