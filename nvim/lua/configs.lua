@@ -27,7 +27,7 @@ map('v', '<leader>y', '\"+y', { noremap = true, silent = false })
 map('n', '`', ':25Lexplore<cr>', { noremap = true, silent = false })
 
 -- eslint language server has to be installed
-map('n', '<leader>fa', ':EsLintFixAll<cr>', { noremap = true, silent = false })
+map('n', '<leader>fa', ':EslintFixAll<cr>', { noremap = true, silent = false })
 
 vim.api.nvim_create_autocmd('filetype', {
   pattern = 'netrw',
