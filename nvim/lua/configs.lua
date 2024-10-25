@@ -24,7 +24,8 @@ map('n', '<leader>y', '\"+y', { noremap = true, silent = false })
 map('v', '<leader>y', '\"+y', { noremap = true, silent = false })
 
 -- toggle Ntree (Lexplore) 25 characters wide
-map('n', '`', ':25Lexplore<cr>', { noremap = true, silent = false })
+-- overriden by mini.files
+-- map('n', '`', ':25Lexplore<cr>', { noremap = true, silent = false })
 
 -- eslint language server has to be installed
 map('n', '<leader>fa', ':EslintFixAll<cr>', { noremap = true, silent = false })

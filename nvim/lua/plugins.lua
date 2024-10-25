@@ -212,8 +212,93 @@ require('lazy').setup({
         return '%2l:%-2v'
       end
 
-      -- ... and there is more!
-      --  Check out: https://github.com/echasnovski/mini.nvim
+      require('mini.files').setup({
+        content = {
+          filter = nil,
+          prefix = nil,
+          sort = nil,
+        },
+
+        -- Module mappings created only inside explorer.
+        -- Use `''` (empty string) to not create one.
+        mappings = {
+          close       = 'q',
+          go_in       = 'l',
+          go_in_plus  = '<cr>',
+          go_out      = 'h',
+          go_out_plus = 'H',
+          mark_goto   = "'",
+          mark_set    = 'm',
+          reset       = '<BS>',
+          reveal_cwd  = '@',
+          show_help   = 'g?',
+          synchronize = '=',
+          trim_left   = '<',
+          trim_right  = '>',
+        },
+        options = {
+          permanent_delete = true,
+          use_as_default_explorer = true,
+        },
+        windows = {
+          max_number = math.huge,
+          preview = true,
+          width_focus = 50,
+          width_nofocus = 15,
+          width_preview = 25,
+        },
+      })
+
+      -- use ` to open MiniFiles
+      vim.api.nvim_set_keymap('n', '`', ':lua  MiniFiles.open()<cr>', { noremap = true, silent = false })
+
+      local map_split = function(buf_id, keymap, direction)
+        local open_split_and_load_file_into = function()
+          -- Make new window
+          local cur_target = MiniFiles.get_explorer_state().target_window
+          local new_target = vim.api.nvim_win_call(cur_target, function()
+            vim.cmd(direction .. ' split')
+            return vim.api.nvim_get_current_win()
+          end)
+
+          -- Set new window as target
+          MiniFiles.set_target_window(new_target)
+
+          -- Navigate to item under cursor in the new window
+          MiniFiles.go_in({ close_on_file = true  })
+        end
+
+        -- Adding `desc` will result into `show_help` entries
+        local desc = 'Split ' .. direction
+        vim.keymap.set('n', keymap, open_split_and_load_file_into, { buffer = buf_id, desc = desc })
+      end
+
+      local open_tabnew_and_load_file_into_it = function()
+        -- Make new window
+        local cur_target = MiniFiles.get_explorer_state().target_window
+        local new_target = vim.api.nvim_win_call(cur_target, function()
+          vim.cmd('tabnew')
+          return vim.api.nvim_get_current_win()
+        end)
+
+        -- Set new window as target
+        MiniFiles.set_target_window(new_target)
+
+        -- Navigate to item under cursor in the new window
+        MiniFiles.go_in({ close_on_file = true  })
+      end
+
+
+      vim.api.nvim_create_autocmd('User', {
+        pattern = 'MiniFilesBufferCreate',
+        callback = function(args)
+          local buf_id = args.data.buf_id
+          map_split(buf_id, '<C-s>', 'belowright horizontal')
+          map_split(buf_id, '<C-v>', 'belowright vertical')
+          vim.keymap.set('n', '<C-t>', open_tabnew_and_load_file_into_it, { buffer = buf_id, desc = 'Open file in new tab' })
+        end,
+      })
+
     end,
   },
   { 'Bilal2453/luvit-meta', lazy = true },
