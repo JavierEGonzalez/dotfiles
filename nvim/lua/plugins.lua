@@ -49,9 +49,9 @@ require('lazy').setup({
     end
   },
   {
-    'rebelot/kanagawa.nvim', 
+    'rebelot/kanagawa.nvim',
     init = function()
-      vim.cmd.colorscheme('kanagawa-dragon') 
+      vim.cmd.colorscheme('kanagawa-dragon')
     end,
   },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
@@ -252,7 +252,8 @@ require('lazy').setup({
       -- use ` to open MiniFiles
       vim.api.nvim_set_keymap('n', '`', ':lua  MiniFiles.open()<cr>', { noremap = true, silent = false })
 
-      local map_split = function(buf_id, keymap, direction)
+
+      local map_split = function(buf_id, keymap, direction, close)
         local open_split_and_load_file_into = function()
           -- Make new window
           local cur_target = MiniFiles.get_explorer_state().target_window
@@ -263,14 +264,15 @@ require('lazy').setup({
 
           -- Set new window as target
           MiniFiles.set_target_window(new_target)
-
-          -- Navigate to item under cursor in the new window
-          MiniFiles.go_in({ close_on_file = true  })
+          MiniFiles.go_in({ close_on_file = close })
         end
 
         -- Adding `desc` will result into `show_help` entries
         local desc = 'Split ' .. direction
+
         vim.keymap.set('n', keymap, open_split_and_load_file_into, { buffer = buf_id, desc = desc })
+
+
       end
 
       local open_tabnew_and_load_file_into_it = function()
@@ -283,8 +285,6 @@ require('lazy').setup({
 
         -- Set new window as target
         MiniFiles.set_target_window(new_target)
-
-        -- Navigate to item under cursor in the new window
         MiniFiles.go_in({ close_on_file = true  })
       end
 
@@ -293,8 +293,14 @@ require('lazy').setup({
         pattern = 'MiniFilesBufferCreate',
         callback = function(args)
           local buf_id = args.data.buf_id
-          map_split(buf_id, '<C-s>', 'belowright horizontal')
-          map_split(buf_id, '<C-v>', 'belowright vertical')
+          map_split(buf_id, '<leader>s', 'belowright horizontal', true)
+          map_split(buf_id, '<C-s>', 'belowright horizontal', false)
+
+          map_split(buf_id, '<leader>v', 'belowright vertical', true)
+          map_split(buf_id, '<C-v>', 'belowright vertical', false)
+
+          -- both open and close file explorer on command
+          vim.keymap.set('n', '<leader>t', open_tabnew_and_load_file_into_it, { buffer = buf_id, desc = 'Open file in new tab' })
           vim.keymap.set('n', '<C-t>', open_tabnew_and_load_file_into_it, { buffer = buf_id, desc = 'Open file in new tab' })
         end,
       })
@@ -526,6 +532,16 @@ require('lazy').setup({
     },
     config = function()
         require("litee.gh").setup()
+    end,
+  },
+  {
+    "zbirenbaum/copilot.lua",
+    cmd = "Copilot",
+    event = "InsertEnter",
+    config = function()
+      require("copilot").setup({
+        suggestion = { enabled = true }
+      })
     end,
   },
 })
