@@ -22,6 +22,8 @@ map('n', '>', '>>', { noremap = true, silent = false })
 map('n', '<', '<<', { noremap = true, silent = false })
 map('n', '<leader>y', '\"+y', { noremap = true, silent = false })
 map('v', '<leader>y', '\"+y', { noremap = true, silent = false })
+map('n', '<leader>Y', '\"+y', { noremap = true, silent = false })
+map('v', '<leader>Y', '\"+y', { noremap = true, silent = false })
 
 -- toggle Ntree (Lexplore) 25 characters wide
 -- overriden by mini.files
