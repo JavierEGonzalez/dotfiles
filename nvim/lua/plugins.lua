@@ -53,6 +53,11 @@ require('lazy').setup({
     init = function()
       vim.cmd.colorscheme('kanagawa-dragon')
     end,
+    config = function()
+      require('kanagawa').setup({
+        transparent = true,
+      })
+    end,
   },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
