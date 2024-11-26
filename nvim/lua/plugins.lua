@@ -158,6 +158,7 @@ require('lazy').setup({
     'echasnovski/mini.nvim',
     version = '*',
     config = function()
+      require('mini.animate').setup()
       -- Better Around/Inside textobjects
       --
       -- Examples:
@@ -549,5 +550,15 @@ require('lazy').setup({
       })
     end,
   },
+  {
+    'claydugo/browsher.nvim',
+    event = "VeryLazy",
+    config = function()
+      require('browsher').setup({
+        default_pin = "branch",
+        open_cmd = 'open',
+      })
+    end
+  }
 })
 
