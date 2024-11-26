@@ -557,6 +557,7 @@ require('lazy').setup({
       require('browsher').setup({
         default_pin = "branch",
         open_cmd = 'open',
+        allow_line_numbers_with_uncommitted_changes = true
       })
     end
   }
