@@ -11,9 +11,6 @@
 [core]
   excludesFile = ~/.scratch/.gitignore
   editor = nvim
-[core]
-  excludesFile = ~/.scratch/.gitignore
-  editor = nvim
 [diff]
   tool = nvimdiff
 [difftool]
