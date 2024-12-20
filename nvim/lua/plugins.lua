@@ -560,6 +560,12 @@ require('lazy').setup({
         allow_line_numbers_with_uncommitted_changes = true
       })
     end
-  }
+  },
+  {
+    "aaronik/treewalker.nvim",
+    opts = {
+      highlight = true -- default is false
+    }
+  },
 })
 
