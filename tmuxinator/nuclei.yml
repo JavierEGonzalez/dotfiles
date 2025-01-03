@@ -1,7 +1,7 @@
 # /Users/p70009t/.config/tmuxinator/nuclei.yml
 
 name: nuclei
-root: ~/workspace/nuclei<%= @args[0] %>/
+root: ~/workspace/nuclei/
 
 # Runs on project start, always
 # on_project_start: command
@@ -35,6 +35,8 @@ root: ~/workspace/nuclei<%= @args[0] %>/
 
 # Controls whether the tmux session should be attached to automatically. Defaults to true.
 # attach: false
+
+pre_window: export ticket=CXPVSP-<%= @args[0] %> && tmux setenv ticket CXPVSP-<%= @args[0] %>
 
 windows:
   - editor:
