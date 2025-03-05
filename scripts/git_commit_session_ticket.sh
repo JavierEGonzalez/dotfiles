@@ -1,6 +1,6 @@
 #/usr/local/bin/bash
 
-if [[ -z $ticket ]]; then
+if [[ -z $ticket || $ticket == 'CXPVSP-' ]]; then
   echo "Ticket is not set"
   echo "Setup session ticket:"
   read -p ">" ticket

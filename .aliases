@@ -15,20 +15,27 @@ alias gcp='bash ~/.scratch/git_commit_prev_ticket.sh'
 setTicket() {
   export ticket=CXPVSP-$1 && tmux setenv ticket CXPVSP-$1
 }
-alias gct='bash ~/.scratch/git_commit_session_ticket.sh'
+alias gct='bash ~/.scratch/.configs/scripts/git_commit_session_ticket.sh'
 
 alias cb='bash ~/.scratch/checkout-branch.sh'
+alias ctb="cb $ticket"
 
 alias lvim=~/.local/bin/lvim
 
 alias rd='yarn run dev'
+alias opco='bash ~/.scratch/run_dev.sh'
+
 alias rt='yarn run test:unit'
+alias rvt='yarn run test:unit'
 
 alias gtn='cd ~/workspace/nuclei/'
 alias gtncl='cd ~/workspace/nuclei/'
 
 alias gtcl='cd ~/workspace/pdl-web-frontend-prism-client/'
 alias gtsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/'
+
+alias stcl='cd ~/workspace/pdl-web-frontend-prism-client/ && sh start.sh 9443'
+alias stsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/ && yarn run dev'
 
 alias vncl="cd ~/workspace/nuclei && nvim"
 

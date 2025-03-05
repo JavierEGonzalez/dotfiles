@@ -338,6 +338,7 @@ require('lazy').setup({
             vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
           end
           map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+          map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
         end
       })
 
@@ -607,5 +608,41 @@ require('lazy').setup({
       highlight = true -- default is false
     }
   },
+  {
+    "mxsdev/nvim-dap-vscode-js",
+    requires = {
+      "mfussenegger/nvim-dap"
+    },
+    -- config = function()
+    --   require("dap-vscode-js").setup({
+    --     node_path = "node",
+    --     debugger_path = "(runtimedir)/site/pack/packer/opt/vscode-js-debug",
+    --     debugger_cmd = { "js-debug-adapter" },
+    --     adapters = { 'pwa-node', 'pwa-chrome', 'pwa-msedge', 'node-terminal', 'pwa-extensionHost' },
+    --     log_file_path = "(stdpath cache)/dap_vscode_js.log", -- Path for file logging
+    --     log_file_level = 0,
+    --     log_console_level = vim.log.levels.ERROR, -- Logging level for output to console. Set to false to disable console output.
+    --   })
+    --   for _, language in ipairs({ "typescript", "javascript" }) do
+    --     require("dap").configurations[language] = {
+    --       {
+    --         type = "pwa-node",
+    --         request = "launch",
+    --         name = "Launch file",
+    --         program = "${file}",
+    --         cwd = "${workspaceFolder}",
+    --       },
+    --       {
+    --         type = "pwa-node",
+    --         request = "attach",
+    --         name = "Attach",
+    --         processId = require'dap.utils'.pick_process,
+    --         cwd = "${workspaceFolder}",
+    --       }
+    --     }
+    --   end
+    -- end
+  },
 })
+
 
