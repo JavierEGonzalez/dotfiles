@@ -257,7 +257,10 @@ require('lazy').setup({
       })
 
       -- use ` to open MiniFiles
-      vim.api.nvim_set_keymap('n', '`', ':lua  MiniFiles.open()<cr>', { noremap = true, silent = false })
+      vim.keymap.set('n', '`', function()
+        MiniFiles.open(vim.api.nvim_buf_get_name(0), false)
+        MiniFiles.reveal_cwd()
+      end, { desc = "Open File Tree" })
 
 
       local map_split = function(buf_id, keymap, direction, close)
