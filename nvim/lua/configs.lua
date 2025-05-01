@@ -45,26 +45,6 @@ map('n', '<leader>dp', ':lua vim.diagnostic.goto_prev() <CR>', { noremap = true 
 -- overriden by mini.files
 -- map('n', '`', ':25Lexplore<cr>', { noremap = true, silent = false })
 
--- eslint language server has to be installed
-map('n', '<leader>fa', ':EslintFixAll<cr>', { noremap = true, silent = false })
-
-vim.api.nvim_create_autocmd('filetype', {
-  pattern = 'netrw',
-  desc = 'Better mappings for netrw',
-  callback = function()
-    local bind = function(lhs, rhs)
-      vim.keymap.set('n', lhs, rhs, {remap = true, buffer = true})
-    end 
-
-    -- edit new file
-    bind('n', '%')
-
-    -- rename file
-    bind('r', 'R')
-    bind('o', 'R')
-  end
-})
-
 local triggers = {"."}
 
 -- vim.api.nvim_create_autocmd("InsertCharPre", {

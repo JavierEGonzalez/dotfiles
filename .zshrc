@@ -121,29 +121,14 @@ alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
-
-#show git branch on prompt
-#parse_git_branch() {
-#  git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
-#}
-
 set -o vi
-
-jdk() { 
-    version=17
-    echo "version: $version"
-    export JAVA_HOME=$(/usr/libexec/java_home –v"$version"); 
-    java -version 
-}
-
-jdk
 
 alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
 
 export PATH="$HOME/.jenv/bin:$PATH"
-eval "$(jenv init -)"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "/usr/local/opt/nvm/nvm.sh" ] && \. "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
 [ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/usr/local/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
+eval "$(direnv hook zsh)"
