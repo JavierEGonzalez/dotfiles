@@ -12,10 +12,9 @@ alias lc=lastCommit
 alias gc='bash ~/.scratch/git_commit.sh'
 alias gcp='bash ~/.scratch/git_commit_prev_ticket.sh'
 
-setTicket() {
-  export ticket=CXPVSP-$1 && tmux setenv ticket CXPVSP-$1
-}
-alias gct='bash ~/.scratch/.configs/scripts/git_commit_session_ticket.sh'
+alias gct='bash ~/.scratch/scripts/git_commit_session_ticket.sh'
+
+alias setTicket='bash ~/.scratch/scripts/set_session_ticket.sh'
 
 alias cb='bash ~/.scratch/checkout-branch.sh'
 alias ctb="cb $ticket"
