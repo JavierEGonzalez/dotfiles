@@ -14,7 +14,6 @@ else
   echo "Ticket already in ticket file"
 fi
 
-
 if ! git branch | grep -q $ticket; then
   read -p "Do you want to create a branch with this ticket? [y/n] " create_branch
 
@@ -36,9 +35,9 @@ if ! git branch | grep -q $ticket; then
     echo "Switched to new branch: $branch_name"
   fi
 else
-  echo "found these branches with ticket in name:"
+  echo "Branches with ticket, choose to checkout:"
   
-  branchList=($(git branch | grep $ticket | sed 's/^[ *]*//'))
+  branchList=($(git branch | grep $ticket | sed 's/^[ *]*//' | grep -v $(git rev-parse --abbrev-ref HEAD)))
   select fname in ${branchList[@]} "Do not checkout branch"; do
     echo "selected $fname"
     if [[ $fname != "Do not checkout branch" ]]; then
