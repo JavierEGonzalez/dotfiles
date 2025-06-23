@@ -14,14 +14,18 @@ else
   echo "Ticket already in ticket file"
 fi
 
+if git branch --show-current | grep -q $ticket; then
+  echo "In Ticket Branch '$(git branch --show-current)'"
+  exit 0
+fi
+
 if ! git branch | grep -q $ticket; then
+  echo "No branches for this ticket"
   read -p "Do you want to create a branch with this ticket? [y/n] " create_branch
 
   if [[ $create_branch == "y" || $create_branch == "Y" ]]; then
-    read -p "Enter a description for the branch: " description
-    # ask for feature|bugfix|hotfix
     read -p "Is this a [f]eature, [b]ugfix, or [h]otfix? [f/b/h] " branch_type
-    # read value and set prefix to be full word
+    read -p "Enter a description for the branch: " description
     case $branch_type in
       f|F) prefix="feature" ;;
       b|B) prefix="bugfix" ;;
@@ -36,8 +40,7 @@ if ! git branch | grep -q $ticket; then
   fi
 else
   echo "Branches with ticket, choose to checkout:"
-  
-  branchList=($(git branch | grep $ticket | sed 's/^[ *]*//' | grep -v $(git rev-parse --abbrev-ref HEAD)))
+  branchList=($(git branch | grep $ticket | sed 's/^[ *]*//'))
   select fname in ${branchList[@]} "Do not checkout branch"; do
     echo "selected $fname"
     if [[ $fname != "Do not checkout branch" ]]; then
