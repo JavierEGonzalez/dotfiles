@@ -1,6 +1,7 @@
--- install lazy which handles all the rest of the plugins
-
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+
+local lsp_plugin_table = require("lsp")
+
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
 	local lazyrepo = "https://github.com/folke/lazy.nvim.git"
 	local out = vim.fn.system({
@@ -18,6 +19,7 @@ end ---@diagnostic disable-next-line: undefined-field
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
+	-- sleuth for normalizing tab width based on file
 	"tpope/vim-sleuth",
 	{
 		"m4xshen/autoclose.nvim",
@@ -111,23 +113,26 @@ require("lazy").setup({
 
 			-- See `:help telescope.builtin`
 			local builtin = require("telescope.builtin")
-			vim.keymap.set("n", "<leader>ff", builtin.find_files, { desc = "[S]earch [F]iles" })
-			vim.keymap.set("n", "<leader>fg", builtin.live_grep, { desc = "[S]earch by [G]rep" })
-			vim.keymap.set("n", "<leader>fr", builtin.resume, { desc = "[S]earch [R]esume" })
-			vim.keymap.set("n", "<leader>f.", builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
-			vim.keymap.set("n", "<leader>fh", builtin.help_tags, { desc = "[S]earch [H]elp" })
-			vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "[ ] Find existing buffers" })
+			vim.keymap.set("n", "<leader>ff", builtin.find_files, { desc = "[F]earch [F]iles" })
+			vim.keymap.set("n", "<leader>fg", builtin.live_grep, { desc = "[F]earch by [G]rep" })
+			vim.keymap.set("n", "<leader>fr", builtin.resume, { desc = "[F]earch [R]esume" })
+			vim.keymap.set("n", "<leader>f.", builtin.oldfiles, { desc = '[F]earch Recent Files ("." for repeat)' })
+			vim.keymap.set("n", "<leader>fh", builtin.help_tags, { desc = "[F]earch [H]elp" })
+			vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "[F]ind existing [B]uffers" })
 		end,
 	},
 	{
 		"nvim-treesitter/nvim-treesitter",
 		config = function()
 			require("nvim-treesitter.configs").setup({
-				ensure_installed = { "c", "lua", "vimdoc", "query" },
+				ensure_installed = { "c", "lua", "vimdoc", "query", "vue", "typescript" },
 				auto_install = true,
 				highlight = {
 					enable = true,
 				},
+				modules = {},
+				sync_install = false,
+				ignore_install = {},
 				incremental_selection = {
 					enable = true,
 					keymaps = {
@@ -143,22 +148,10 @@ require("lazy").setup({
 		end,
 	},
 	{
-		-- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
-		-- used for completion, annotations and signatures of Neovim apis
-		"folke/lazydev.nvim",
-		ft = "lua",
-		opts = {
-			library = {
-				-- Load luvit types when the `vim.uv` word is found
-				{ path = "luvit-meta/library", words = { "vim%.uv" } },
-			},
-		},
-	},
-	{
 		"echasnovski/mini.nvim",
 		version = "*",
 		config = function()
-			require("mini.animate").setup()
+			-- require("mini.animate").setup()
 			-- Better Around/Inside textobjects
 			--
 			-- Examples:
@@ -180,12 +173,12 @@ require("lazy").setup({
 			--   goto_left = 'g[',
 			--   goto_right = 'g]',
 
-			-- Add/delete/replace surroundings (brackets, quotes, etc.)
-			--
-			-- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-			-- - sd'   - [S]urround [D]elete [']quotes
-			-- - sr)'  - [S]urround [R]eplace [)] [']
 			require("mini.surround").setup({
+				-- Add/delete/replace surroundings (brackets, quotes, etc.)
+				--
+				-- - ysaiw) - [YS]urround [A]dd [I]nner [W]ord [)]Paren
+				-- - ysd'   - [S]urround [D]elete [']quotes
+				-- - sr)'  - [S]urround [R]eplace [)] [']
 				mappings = {
 					add = "ys", -- Add surrounding in Normal and Visual modes
 					delete = "yd", -- Delete surrounding
@@ -321,218 +314,6 @@ require("lazy").setup({
 			})
 		end,
 	},
-	{ "Bilal2453/luvit-meta", lazy = true },
-	{
-		"neovim/nvim-lspconfig",
-		dependencies = {
-			{ "williamboman/mason.nvim", config = true }, -- NOTE: Must be loaded before dependants
-			"williamboman/mason-lspconfig.nvim",
-			"WhoIsSethDaniel/mason-tool-installer.nvim",
-
-			-- Useful status updates for LSP.
-			-- NOTE: `opts = {}` is the same as calling `require('fidget').setup({})`
-			{ "j-hui/fidget.nvim", opts = {} },
-
-			"hrsh7th/cmp-nvim-lsp",
-		},
-		config = function()
-			vim.api.nvim_create_autocmd("LspAttach", {
-				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
-				callback = function(event)
-					local map = function(keys, func, desc, mode)
-						mode = mode or "n"
-						vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "LSP: " .. desc })
-					end
-					map("gd", require("telescope.builtin").lsp_definitions, "[G]oto [D]efinition")
-					map("gr", require("telescope.builtin").lsp_references, "[G]oto [R]eferences")
-				end,
-			})
-
-			local capabilities = vim.lsp.protocol.make_client_capabilities()
-			capabilities = vim.tbl_deep_extend("force", capabilities, require("cmp_nvim_lsp").default_capabilities())
-
-			-- These are the local LSPs that are active, to add a new LSP look up this list:
-			-- https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md
-			local servers = {
-				ts_ls = {
-					init_options = {
-						plugins = {
-							{
-								name = "@vue/typescript-plugin",
-								location = "/usr/local/lib/node_modules/@vue/typescript-plugin",
-								languages = { "javascript", "typescript", "vue" },
-							},
-						},
-					},
-					filetypes = {
-						"javascript",
-						"typescript",
-						"vue",
-						"javascriptreact",
-						"javascript.jsx",
-						"typescriptreact",
-						"typescript.tsx",
-					},
-				},
-				volar = {},
-				lua_ls = {
-					settings = {
-						Lua = {
-							completion = {
-								callSnippet = "Replace",
-							},
-							-- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
-							-- diagnostics = { disable = { 'missing-fields' } },
-						},
-					},
-				},
-				eslint = {
-					capabilities = capabilities,
-					flags = { debounce_text_changes = 500 },
-					-- on_attach = function(client, bufnr)
-					-- client.server_capabilities.documentFormattingProvider = true
-					-- if client.server_capabilities.documentFormattingProvider then
-					-- local au_lsp = vim.api.nvim_create_augroup("eslint_lsp", { clear = true })
-					-- vim.api.nvim_create_autocmd("BufWritePre", {
-					-- pattern = "*",
-					-- callback = function()
-					-- vim.lsp.buf.format({ async = true })
-					-- end,
-					-- group = au_lsp,
-					-- })
-					-- end
-					-- end,
-				},
-				fixjson = {},
-			}
-
-			require("mason").setup()
-
-			local ensure_installed = vim.tbl_keys(servers or {})
-			vim.list_extend(ensure_installed, {
-				"stylua",
-			})
-			require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
-
-			require("mason-lspconfig").setup({
-				handlers = {
-					function(server_name)
-						local server = servers[server_name] or {}
-						-- This handles overriding only values explicitly passed
-						-- by the server configuration above. Useful when disabling
-						-- certain features of an LSP (for example, turning off formatting for ts_ls)
-						server.capabilities = vim.tbl_deep_extend("force", {}, capabilities, server.capabilities or {})
-						require("lspconfig")[server_name].setup(server)
-					end,
-				},
-				automatic_installation = true,
-				ensure_installed = {},
-			})
-		end,
-	},
-	{
-		"vim-autoformat/vim-autoformat",
-		config = function()
-			vim.api.nvim_set_keymap("n", "<leader>fa", ":Autoformat<cr>", { noremap = true, silent = false })
-			vim.api.nvim_set_keymap("n", "<leader>fl", ":AutoformatLine<cr>", { noremap = true, silent = false })
-			vim.api.nvim_set_keymap("v", "<leader>fa", ":Autoformat<cr>", { noremap = true, silent = false })
-			vim.api.nvim_set_keymap("v", "<leader>fl", ":AutoformatLine<cr>", { noremap = true, silent = false })
-		end,
-	},
-	{ -- Autocompletion
-		"hrsh7th/nvim-cmp",
-		event = "InsertEnter",
-		dependencies = {
-			{
-				"L3MON4D3/LuaSnip",
-				build = (function()
-					-- Build Step is needed for regex support in snippets.
-					-- This step is not supported in many windows environments.
-					-- Remove the below condition to re-enable on windows.
-					if vim.fn.has("win32") == 1 or vim.fn.executable("make") == 0 then
-						return
-					end
-					return "make install_jsregexp"
-				end)(),
-				dependencies = {
-					-- `friendly-snippets` contains a variety of premade snippets.
-					--    See the README about individual language/framework/plugin snippets:
-					--    https://github.com/rafamadriz/friendly-snippets
-					{
-						"rafamadriz/friendly-snippets",
-						config = function()
-							require("luasnip.loaders.from_vscode").lazy_load()
-						end,
-					},
-				},
-			},
-			"saadparwaiz1/cmp_luasnip",
-			"hrsh7th/cmp-nvim-lsp",
-			"hrsh7th/cmp-path",
-		},
-		config = function()
-			-- See `:help cmp`
-			local cmp = require("cmp")
-			local luasnip = require("luasnip")
-			luasnip.config.setup({})
-
-			cmp.setup({
-				snippet = {
-					expand = function(args)
-						luasnip.lsp_expand(args.body)
-					end,
-				},
-				completion = {
-					completeopt = "menu,menuone,noinsert",
-				},
-
-				-- context `:help ins-completion`
-				mapping = cmp.mapping.preset.insert({
-					-- Select the [n]ext item
-					["<C-n>"] = cmp.mapping.select_next_item(),
-					-- Select the [p]revious item
-					["<C-p>"] = cmp.mapping.select_prev_item(),
-
-					-- Scroll the documentation window [b]ack / [f]orward
-					["<C-b>"] = cmp.mapping.scroll_docs(-4),
-					["<C-f>"] = cmp.mapping.scroll_docs(4),
-
-					-- Accept ([y]es) the completion.
-					-- This will auto-import if LSP supports it.
-					["<C-y>"] = cmp.mapping.confirm({ select = true }),
-					["<CR>"] = cmp.mapping.confirm({ select = true }),
-
-					["<Tab>"] = cmp.mapping.select_next_item(),
-					["<S-Tab>"] = cmp.mapping.confirm({ select = false }),
-
-					-- Manually trigger a completion from nvim-cmp.
-					["<C-Space>"] = cmp.mapping.complete({}),
-
-					-- move to prev[h] and next[l] target in snippet
-					["<C-l>"] = cmp.mapping(function()
-						if luasnip.expand_or_locally_jumpable() then
-							luasnip.expand_or_jump()
-						end
-					end, { "i", "s" }),
-					["<C-h>"] = cmp.mapping(function()
-						if luasnip.locally_jumpable(-1) then
-							luasnip.jump(-1)
-						end
-					end, { "i", "s" }),
-				}),
-				sources = {
-					{
-						name = "lazydev",
-						-- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
-						group_index = 0,
-					},
-					{ name = "nvim_lsp" },
-					{ name = "luasnip" },
-					{ name = "path" },
-				},
-			})
-		end,
-	},
 	{
 		"kdheepak/lazygit.nvim",
 		lazy = true,
@@ -626,44 +407,22 @@ require("lazy").setup({
 		end,
 	},
 	{
-		"aaronik/treewalker.nvim",
+		"https://github.com/aaronik/treewalker.nvim",
 		opts = {
 			highlight = true, -- default is false
 		},
 	},
-	{
-		"mxsdev/nvim-dap-vscode-js",
-		requires = {
-			"mfussenegger/nvim-dap",
-		},
-		-- config = function()
-		--   require("dap-vscode-js").setup({
-		--     node_path = "node",
-		--     debugger_path = "(runtimedir)/site/pack/packer/opt/vscode-js-debug",
-		--     debugger_cmd = { "js-debug-adapter" },
-		--     adapters = { 'pwa-node', 'pwa-chrome', 'pwa-msedge', 'node-terminal', 'pwa-extensionHost' },
-		--     log_file_path = "(stdpath cache)/dap_vscode_js.log", -- Path for file logging
-		--     log_file_level = 0,
-		--     log_console_level = vim.log.levels.ERROR, -- Logging level for output to console. Set to false to disable console output.
-		--   })
-		--   for _, language in ipairs({ "typescript", "javascript" }) do
-		--     require("dap").configurations[language] = {
-		--       {
-		--         type = "pwa-node",
-		--         request = "launch",
-		--         name = "Launch file",
-		--         program = "${file}",
-		--         cwd = "${workspaceFolder}",
-		--       },
-		--       {
-		--         type = "pwa-node",
-		--         request = "attach",
-		--         name = "Attach",
-		--         processId = require'dap.utils'.pick_process,
-		--         cwd = "${workspaceFolder}",
-		--       }
-		--     }
-		--   end
-		-- end
+	{ -- annotations like tsdoc
+		"danymat/neogen",
+		config = function()
+			local opts = { noremap = true, silent = true }
+			vim.api.nvim_set_keymap("n", "<leader>nf", ":lua require('neogen').generate()<CR>", opts)
+			require("neogen").setup({
+				enabled = true, --if you want to disable Neogen
+				input_after_comment = true, -- (default: true) automatic jump (with insert mode) on inserted annotation
+			})
+		end,
+		version = "*",
 	},
+	lsp_plugin_table,
 })

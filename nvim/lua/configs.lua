@@ -15,6 +15,8 @@ vim.api.nvim_create_user_command('W', 'w', {})
 vim.api.nvim_create_user_command('Qa', 'qa', {})
 vim.api.nvim_create_user_command('Q', 'q', {})
 
+map('n', '<leader>n', ':noh<cr>', { noremap = true, silent = false })
+
 -- go to [m]atching [p]arenthesis
 map('n', '<leader>mp', '%', { noremap = true, silent = false })
 map('v', '<leader>mp', '%', { noremap = true, silent = false })
@@ -31,15 +33,18 @@ map('v', '<leader>y', '\"+y', { noremap = true, silent = false })
 map('n', '<leader>Y', '\"+y', { noremap = true, silent = false })
 map('v', '<leader>Y', '\"+y', { noremap = true, silent = false })
 
-map('n', '<C-j>', ':Treewalker Down<CR>', { noremap = true })
-map('n', '<C-k>', ':Treewalker Up<CR>', { noremap = true })
-map('n', '<C-h>', ':Treewalker Left<CR>', { noremap = true })
-map('n', '<C-l>', ':Treewalker Right<CR>', { noremap = true })
+map('n', '<M-j>', ':Treewalker Down<CR>', { noremap = true })
+map('n', '<M-k>', ':Treewalker Up<CR>', { noremap = true })
+map('n', '<M-h>', ':Treewalker Left<CR>', { noremap = true })
+map('n', '<M-l>', ':Treewalker Right<CR>', { noremap = true })
 
 -- open diagnostics dialog box for full details
 map('n', '<leader>dd', ':lua vim.diagnostic.goto_next() <CR>', { noremap = true })
 map('n', '<leader>do', ':lua vim.diagnostic.open_float() <CR>', { noremap = true })
 map('n', '<leader>dp', ':lua vim.diagnostic.goto_prev() <CR>', { noremap = true })
+--
+-- open diagnostics dialog box for full details on errors
+map('n', '<leader>h', ':lua vim.lsp.buf.hover() <CR>', { noremap = true })
 
 -- toggle Ntree (Lexplore) 25 characters wide
 -- overriden by mini.files
