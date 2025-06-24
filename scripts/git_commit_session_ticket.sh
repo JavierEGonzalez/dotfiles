@@ -1,4 +1,6 @@
 #/usr/local/bin/bash
+# source functions
+source ~/.scratch/scripts/session_ticket_functions.sh
 
 if [[ -z $ticket || $ticket == 'CXPVSP-' ]]; then
   echo "Ticket is not set"
@@ -36,5 +38,4 @@ else
   echo "Message: '$msg'"
 fi
 
-echo "RUNNING THE FOLLOWING COMMAND: git commit -m '$ticket: $msg' --no-verify"
-git commit -m "$ticket: $msg" --no-verify
+commit_ticket $ticket $msg
