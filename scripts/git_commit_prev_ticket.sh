@@ -25,5 +25,4 @@ echo "Committing to $fname"
 echo "Message:"
 read -p ">" msg
 
-echo "RUNNING THE FOLLOWING COMMAND: git commit -m '$fname: $msg' --no-verify"
-git commit -m "$fname: $msg" --no-verify
+commit_ticket $fname $msg
