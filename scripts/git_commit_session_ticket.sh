@@ -1,5 +1,4 @@
 #/usr/local/bin/bash
-# source functions
 source ~/.scratch/scripts/session_ticket_functions.sh
 
 if [[ -z $ticket || $ticket == 'CXPVSP-' ]]; then
@@ -9,24 +8,7 @@ if [[ -z $ticket || $ticket == 'CXPVSP-' ]]; then
   export ticket=$ticket && tmux setenv ticket $ticket
 fi
 
-if [[ $(git status | tail -n 1) == "nothing to commit, working tree clean" ]]; then
-  echo "No changes to commit"
-  exit 1
-fi
-if [[ $(git status | tail -n 1 | sed -e "s/ (.*//g") == "no changes added to commit" ]]; then
-  echo "No changes added to commit, run git add .?"
-  select shouldAdd in "yes" "cancel"; do
-    case $shouldAdd in
-    yes)
-      git add .
-      break
-      ;;
-    cancel)
-      exit 1
-      ;;
-    esac
-  done
-fi
+check_commited_files
 
 echo "Committing to $ticket"
 
