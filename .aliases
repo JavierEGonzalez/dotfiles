@@ -1,3 +1,5 @@
+set a variable for $script_dir
+script_dir=$HOME/.scratch
 # needs fzf enabled
 vf() {
   nvim $(fzf)
@@ -6,23 +8,24 @@ vf() {
 set VIM_DEFAULT=vim
 
 alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
-alias lastCommit="gitgraph | head -n 1 | sed -e 's/^.*.).[[:space:]]//' -e 's/[^ ]*.: //'"
+# grab last commit in git without a newline
+alias lastCommit="echo '$(git log -1 --pretty=format:%s | sed 's/\\n//g')'"
 alias lc=lastCommit
 
-alias gc='bash ~/.scratch/git_commit.sh'
-alias gcp='bash ~/.scratch/git_commit_prev_ticket.sh'
+alias gc="sh $script_dir/scripts/git_commit.sh"
+alias gcp="sh $script_dir/scripts/git_commit_prev_ticket.sh"
 
-alias gct='bash ~/.scratch/scripts/git_commit_session_ticket.sh'
+alias gct="sh $script_dir/scripts/git_commit_session_ticket.sh"
 
-alias setTicket='bash ~/.scratch/scripts/set_session_ticket.sh'
+alias setTicket="source $script_dir/scripts/set_session_ticket.sh"
 
-alias cb='bash ~/.scratch/checkout-branch.sh'
+alias cb="sh $script_dir/scripts/checkout-branch.sh"
 alias ctb="cb $ticket"
 
 alias lvim=~/.local/bin/lvim
 
 alias rd='yarn run dev'
-alias opco='bash ~/.scratch/run_dev.sh'
+alias opco="sh $script_dir/scripts/run_dev.sh"
 
 alias rt='yarn run test:unit'
 alias rvt='yarn run test:unit'
@@ -44,10 +47,10 @@ alias v='nvim'
 
 alias source.='source ~/.zshrc'
 alias sredo='sudo !!'
-alias v='vim .'
 alias vimrc='vim ~/.vimrc'
 alias zshrc='vim ~/.zshrc'
 
 
-alias srch='bash ~/.scratch/scripts/srch.sh'
+alias srch="sh $script_dir/scripts/srch.sh"
 
+alias vim='nvim'
