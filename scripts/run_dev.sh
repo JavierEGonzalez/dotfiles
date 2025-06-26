@@ -3,5 +3,5 @@ if [[ -z $1 ]] ; then
   yarn run dev
 else
   echo "Running settings for $1"
-  $("yarn run dev --dotenv ~/.scratch/.env.$1")
+  yarn run dev --dotenv $HOME/.scratch/.env.$1
 fi

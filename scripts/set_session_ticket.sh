@@ -4,7 +4,13 @@ if ! test -f $tickets_file; then
   touch $tickets_file
 fi
 
-export ticket=CXPVSP-$1 && tmux setenv ticket CXPVSP-$1
+if [[ $1 ]]; then
+  ticket_name="CXPVSP-$1"
+else
+  echo "No ticket passed as param"
+  exit 1
+fi
+export ticket="$ticket_name" && tmux setenv ticket "$ticket_name"
 
 echo "Added $ticket to session"
 if ! grep -q $ticket $tickets_file; then
@@ -23,7 +29,7 @@ if ! git branch | grep -q $ticket; then
   echo "No branches for this ticket"
   read -p "Do you want to create a branch with this ticket? [y/n] " create_branch
 
-  if [[ $create_branch == "y" || $create_branch == "Y" ]]; then
+  if [[ $crete_branch =~ ^[yY]$ ]]; then
     read -p "Is this a [f]eature, [b]ugfix, or [h]otfix? [f/b/h] " branch_type
     read -p "Enter a description for the branch or leave empty: " description
     if [[ $description ]]; then

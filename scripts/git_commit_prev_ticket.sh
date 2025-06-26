@@ -1,12 +1,12 @@
 #/usr/local/bin/bash
 source ~/.scratch/scripts/session_ticket_functions.sh
 
-fname=$(git log | head -n 5 | tail -n 1 | sed -e 's/^[[:space:]]*//; s/:.*//')
+fname=$(git log -1 --pretty=%B | head -n 1 | sed -e 's/:\s.*//' -e 's/\[//' -e 's/\]//')
 
-check_committed_files
+prompt_to_stage_if_needed
 
 echo "Committing to $fname"
 echo "Message:"
 read -p ">" msg
 
-commit_ticket $fname $msg
+commit_ticket $fname "$msg"

@@ -1,4 +1,5 @@
 #/usr/local/bin/bash
+source ~/.scratch/scripts/session_ticket_functions.sh
 
 tickets_file=~/.scratch/.currentTickets.txt
 
@@ -8,20 +9,7 @@ fi
 
 read -d '' -ra ticketList <"$tickets_file"
 
-if [[ $(git status | tail -n 1 | sed -e "s/ (.*//g") == "no changes added to commit" ]]; then
-  echo "No changes added to commit, run git add .?"
-  select shouldAdd in "yes" "cancel"; do
-    case $shouldAdd in
-    yes)
-      git add .
-      break
-      ;;
-    cancel)
-      exit 1
-      ;;
-    esac
-  done
-fi
+prompt_to_stage_if_needed
 
 echo 'Which ticket is this commit related to?'
 select fname in ${ticketList[@]} "custom"; do
@@ -37,8 +25,6 @@ select fname in ${ticketList[@]} "custom"; do
   else
     msg=$1
   fi
-  echo "Committing to $fname"
-  echo "RUNNING THE FOLLOWING COMMAND: git commit -m '$fname: $msg' $2"
-  git commit -m "$fname: $msg" $2 --no-verify
+  commit_ticket "$fname" "$msg"
   break
 done

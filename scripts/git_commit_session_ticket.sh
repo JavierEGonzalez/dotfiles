@@ -8,7 +8,7 @@ if [[ -z $ticket || $ticket == 'CXPVSP-' ]]; then
   export ticket=$ticket && tmux setenv ticket $ticket
 fi
 
-check_commited_files
+prompt_to_stage_if_needed
 
 echo "Committing to $ticket"
 
@@ -20,4 +20,4 @@ else
   echo "Message: '$msg'"
 fi
 
-commit_ticket $ticket $msg
+commit_ticket $ticket "$msg"
