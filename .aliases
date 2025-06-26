@@ -5,7 +5,7 @@ vf() {
   nvim $(fzf)
 }
 
-set VIM_DEFAULT=vim
+set VIM_DEFAULT=nvim
 
 alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
 # grab last commit in git without a newline
@@ -17,7 +17,6 @@ alias gcp="sh $script_dir/scripts/git_commit_prev_ticket.sh"
 
 alias gct="sh $script_dir/scripts/git_commit_session_ticket.sh"
 
-alias setTicket="source $script_dir/scripts/set_session_ticket.sh"
 
 alias cb="sh $script_dir/scripts/checkout-branch.sh"
 alias ctb="cb $ticket"
@@ -50,6 +49,11 @@ alias sredo='sudo !!'
 alias vimrc='vim ~/.vimrc'
 alias zshrc='vim ~/.zshrc'
 
+function setTicket() {
+  source $script_dir/scripts/set_session_ticket.sh $1
+  sh $script_dir/scripts/session_ticket_branch.sh
+  source ~/.zshrc
+}
 
 alias srch="sh $script_dir/scripts/srch.sh"
 

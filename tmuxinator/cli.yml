@@ -36,7 +36,7 @@ root: ~/workspace/pdl-web-frontend-prism-client/
 # Controls whether the tmux session should be attached to automatically. Defaults to true.
 # attach: false
 
-pre_window: export ticket=CXPVSP-<%= @args[0] %> && tmux setenv ticket CXPVSP-<%= @args[0] %>
+pre_window: setTicket <%= @args[0] %> 
 
 windows:
   - editor:
