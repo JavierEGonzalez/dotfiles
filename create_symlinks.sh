@@ -118,32 +118,59 @@ link_karabiner() {
 
 # --- Main Execution Logic ---
 echo "This script will help you set up your configuration files by creating hard links."
-echo "You will be prompted for each category of configuration."
+echo "You will be prompted to select a configuration category to link."
 echo
 
-if confirm "Link shell scripts?"; then
-    link_scripts
-    echo
-fi
+OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "All" "Quit")
 
-if confirm "Link dotfiles (e.g., .zshrc, .gitconfig)?"; then
-    link_dotfiles
-    echo
-fi
-
-if confirm "Link Neovim (nvim) configuration?"; then
-    link_nvim
-    echo
-fi
-
-if confirm "Link Tmuxinator configurations?"; then
-    link_tmuxinator
-    echo
-fi
-
-if confirm "Link Karabiner configurations?"; then
-    link_karabiner
-    echo
-fi
-
-echo "All selected configurations have been processed."
+while true; do
+    echo "Select an option to link:"
+    PS3='Please enter your choice: '
+    select opt in "${OPTIONS[@]}"; do
+        case $opt in
+            "Scripts")
+                link_scripts
+                echo
+                break
+                ;;
+            "Dotfiles")
+                link_dotfiles
+                echo
+                break
+                ;;
+            "Nvim")
+                link_nvim
+                echo
+                break
+                ;;
+            "Tmuxinator")
+                link_tmuxinator
+                echo
+                break
+                ;;
+            "Karabiner")
+                link_karabiner
+                echo
+                break
+                ;;
+            "All")
+                link_scripts
+                link_dotfiles
+                link_nvim
+                link_tmuxinator
+                link_karabiner
+                echo
+                break
+                ;;
+            "Quit")
+                echo "Exiting."
+                exit 0
+                ;;
+            *)
+                echo "Invalid option $REPLY. Please select a number from 1 to ${#OPTIONS[@]}."
+                break
+                ;;
+        esac
+    done
+    echo "----------------------------------------"
+done

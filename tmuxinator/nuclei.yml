@@ -36,7 +36,7 @@ root: ~/workspace/nuclei/
 # Controls whether the tmux session should be attached to automatically. Defaults to true.
 # attach: false
 
-pre_window: export ticket=CXPVSP-<%= @args[0] %> && tmux setenv ticket CXPVSP-<%= @args[0] %>
+pre_window: setTicketOnShell <%= @args[0] %> 
 
 windows:
   - editor:
@@ -45,4 +45,4 @@ windows:
       layout: main-vertical
       panes: 
         - rd
-        - yarn run vitest
+        - yarn run vitest watch

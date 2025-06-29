@@ -1,5 +1,5 @@
 set a variable for $script_dir
-script_dir=$HOME/.scratch
+export script_dir=$HOME/.scratch
 # needs fzf enabled
 vf() {
   nvim $(fzf)
@@ -9,25 +9,24 @@ set VIM_DEFAULT=nvim
 
 alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
 # grab last commit in git without a newline
-alias lastCommit="echo '$(git log -1 --pretty=format:%s | sed 's/\\n//g')'"
-alias lc=lastCommit
 
-alias gc="sh $script_dir/scripts/git_commit.sh"
-alias gcp="sh $script_dir/scripts/git_commit_prev_ticket.sh"
+alias rd='yarn run dev'
+alias rt='yarn run test:unit'
+alias rvt='yarn run test:unit'
 
-alias gct="sh $script_dir/scripts/git_commit_session_ticket.sh"
+alias source.='source ~/.zshrc'
+alias sredo='sudo !!'
+alias vimrc='vim ~/.vimrc'
+alias zshrc='vim ~/.zshrc'
 
-
-alias cb="sh $script_dir/scripts/checkout-branch.sh"
-alias ctb="cb $ticket"
+alias srch="sh $script_dir/scripts/srch.sh"
+alias vim='nvim'
+alias nv='nvim'
+alias v='nvim'
 
 alias lvim=~/.local/bin/lvim
 
-alias rd='yarn run dev'
-alias opco="sh $script_dir/scripts/run_dev.sh"
-
-alias rt='yarn run test:unit'
-alias rvt='yarn run test:unit'
+# ADUSA specific stuff
 
 alias gtn='cd ~/workspace/nuclei/'
 alias gtncl='cd ~/workspace/nuclei/'
@@ -38,23 +37,33 @@ alias gtsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/'
 alias stcl='cd ~/workspace/pdl-web-frontend-prism-client/ && sh start.sh 9443'
 alias stsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/ && yarn run dev'
 
+alias opco="sh $script_dir/scripts/run_dev.sh"
+
+
 alias vncl="cd ~/workspace/nuclei && nvim"
+alias refine="nv $script_dir/refinement/tickets.txt"
 
-alias nv='nvim'
+alias ref="sh $script_dir/scripts/add_ticket_to_refinement.sh"
 
-alias v='nvim'
+alias cb="sh $script_dir/scripts/checkout-branch.sh"
+alias ctb="cb $ticket"
 
-alias source.='source ~/.zshrc'
-alias sredo='sudo !!'
-alias vimrc='vim ~/.vimrc'
-alias zshrc='vim ~/.zshrc'
+
+alias lastCommit="echo '$(git log -1 --pretty=format:%s | sed 's/\\n//g')'"
+alias lc=lastCommit
+
+alias gc="sh $script_dir/scripts/git_commit.sh"
+alias gcp="sh $script_dir/scripts/git_commit_prev_ticket.sh"
+alias gct="sh $script_dir/scripts/git_commit_session_ticket.sh"
+
+
+function setTicketOnShell() {
+  source $script_dir/scripts/set_session_ticket.sh $1
+  source ~/.zshrc
+}
 
 function setTicket() {
   source $script_dir/scripts/set_session_ticket.sh $1
   sh $script_dir/scripts/session_ticket_branch.sh
   source ~/.zshrc
 }
-
-alias srch="sh $script_dir/scripts/srch.sh"
-
-alias vim='nvim'

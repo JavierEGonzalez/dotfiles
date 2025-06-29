@@ -3,15 +3,20 @@ if git branch --show-current | grep -q $ticket; then
   exit 0
 fi
 
+if [[ -z $ticket ]]; then
+  echo "no ticket in environment"
+  exit 0
+fi
+
 if ! git branch | grep -q $ticket; then
-  echo "No branches for this ticket"
-  read -p "Do you want to create a branch with this ticket? [y/n] " create_branch
+  echo "No branch found for: $ticket"
+  read -p "Do you want to create a branch? [y/N] " create_branch
 
   if [[ $create_branch =~ ^[yY]$ ]]; then
     read -p "Is this a [f]eature, [b]ugfix, or [h]otfix? [f/b/h] " branch_type
     read -p "Enter a description for the branch or leave empty: " description
     if [[ $description ]]; then
-      description = "-$description"
+      dash_description="-$(echo $description | sed 's/ /-/g')"
     fi
 
     case $branch_type in
@@ -21,7 +26,7 @@ if ! git branch | grep -q $ticket; then
       *) echo "Invalid option, defaulting to feature"; prefix="feature" ;;
     esac
 
-    branch_name="$prefix/$ticket$(echo $description | sed 's/ /-/g')"
+    branch_name="$prefix/$ticket$dash_description"
 
     git checkout -b $branch_name
   fi

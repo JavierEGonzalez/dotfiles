@@ -36,6 +36,8 @@ root: ~/workspace/nucleipr/
 # Controls whether the tmux session should be attached to automatically. Defaults to true.
 # attach: false
 
+pre_window: setTicketOnShell <%= @args[0] %> 
+
 windows:
   - editor:
     - nvim
@@ -43,4 +45,4 @@ windows:
       layout: main-vertical
       panes: 
         - rd
-        - yarn run vitest
+        - yarn run vitest watch
