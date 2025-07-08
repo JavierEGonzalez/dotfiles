@@ -67,3 +67,9 @@ function setTicket() {
   sh $script_dir/scripts/session_ticket_branch.sh
   source ~/.zshrc
 }
+
+function run() {
+  sh $script_dir/scripts/setup-env.sh $1 $2
+  rd
+}
+
