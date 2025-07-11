@@ -32,12 +32,13 @@ create_hard_links_from_dir() {
 
     mkdir -p "$dest_dir"
     echo "Linking files from $source_dir to $dest_dir..."
-    for file in "$source_dir"/*; do
-        if [ -f "$file" ]; then
-            local filename=$(basename "$file")
-            echo "  - Linking $filename"
-            ln -f "$file" "$dest_dir/$filename"
-        fi
+    # Find all files in source and link them to destination, preserving directory structure.
+    find "$source_dir" -type f | while read -r file_path; do
+        local relative_path="${file_path#$source_dir/}"
+        local dest_file="$dest_dir/$relative_path"
+        echo "  - Linking $relative_path"
+        mkdir -p "$(dirname "$dest_file")"
+        ln -f "$file_path" "$dest_file"
     done
     echo "Done linking files from $source_dir."
 }
