@@ -24,9 +24,11 @@ alias nv='nvim'
 alias v='nvim'
 
 alias aibash="sh $script_dir/scripts/workers_ai.sh"
-function ai(){
+
+function ask_ai(){
   sh $script_dir/scripts/workers_ai.sh $1 $script_dir/scripts/workers_ai_general_question
 }
+alias ai=ask_ai
 
 alias lvim=~/.local/bin/lvim
 
