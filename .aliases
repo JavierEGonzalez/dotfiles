@@ -1,4 +1,3 @@
-set a variable for $script_dir
 export script_dir=$HOME/.scratch
 # needs fzf enabled
 vf() {
@@ -23,6 +22,11 @@ alias srch="sh $script_dir/scripts/srch.sh"
 alias vim='nvim'
 alias nv='nvim'
 alias v='nvim'
+
+alias aibash="sh $script_dir/scripts/workers_ai.sh"
+function ai(){
+  sh $script_dir/scripts/workers_ai.sh $1 $script_dir/scripts/workers_ai_general_question
+}
 
 alias lvim=~/.local/bin/lvim
 

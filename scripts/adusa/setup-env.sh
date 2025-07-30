@@ -20,42 +20,37 @@ show_override_menu() {
 
 # --- Main Script ---
 
-# Determine opco_choice from argument or prompt
-if [ -n "$1" ]; then
-    opco_arg=$(echo "$1" | tr '[:lower:]' '[:upper:]')
-    case $opco_arg in
-        STSH) opco_choice=1 ;;
-        GNTL) opco_choice=2 ;;
-        GNTC) opco_choice=3 ;;
-        MRTN) opco_choice=4 ;;
-        FDLN) opco_choice=5 ;;
-        HNFD) opco_choice=6 ;;
-        *)
-            echo "Invalid OPCO provided: $1"
-            echo "Valid options are: STSH, GNTL, GNTC, MRTN, FDLN, HNFD"
-            exit 1
-            ;;
-    esac
-else
-    # No argument, run interactively
-    echo "Please select an OPCO:"
-    echo "1) Stop & Shop (STSH)"
-    echo "2) Giant Food (GNTL)"
-    echo "3) Giant Food Stores (GNTC)"
-    echo "4) Martin's Food (MRTN)"
-    echo "5) Food Lion (FDLN)"
-    echo "6) Hannaford (HNFD)"
-    read -p "Enter number: " opco_choice
-fi
-
 override_defaults=false
+opco_arg="interactive"
 if [ "$1" = "--override-defaults" ] || [ "$1" = "-d" ]; then
     override_defaults=true
     shift
 elif [ "$2" = "--override-defaults" ] || [ "$2" = "-d" ]; then
     override_defaults=true
+    opco_arg=$(echo "$1" | tr '[:lower:]' '[:upper:]')
     shift
+elif [ -n $1 ]; then
+    opco_arg=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 fi
+
+case $opco_arg in
+    STSH) opco_choice=1 ;;
+    GNTL) opco_choice=2 ;;
+    GNTC) opco_choice=3 ;;
+    MRTN) opco_choice=4 ;;
+    FDLN) opco_choice=5 ;;
+    HNFD) opco_choice=6 ;;
+    interactive)
+        # No argument, run interactively
+        echo "Please select an OPCO:"
+        echo "1) Stop & Shop (STSH)"
+        echo "2) Giant Food (GNTL)"
+        echo "3) Giant Food Stores (GNTC)"
+        echo "4) Martin's Food (MRTN)"
+        echo "5) Food Lion (FDLN)"
+        echo "6) Hannaford (HNFD)"
+        read -p "Enter number: " opco_choice
+esac
 
 # Start with a clean .env file
 > .env
