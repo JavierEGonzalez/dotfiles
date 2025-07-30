@@ -101,7 +101,7 @@ set -o vi
 alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
 
 export PATH="$HOME/.jenv/bin:$PATH"
-
+export PATH="/usr/local/opt/openjdk/bin:$PATH"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "/usr/local/opt/nvm/nvm.sh" ] && \. "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
@@ -111,3 +111,4 @@ export NVM_DIR="$HOME/.nvm"
 if command -v direnv >/dev/null 2>&1; then
   eval "$(direnv hook zsh)"
 fi
+

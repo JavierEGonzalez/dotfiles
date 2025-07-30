@@ -3,55 +3,184 @@ local lsp_plugins_table = {
 		-- Main LSP Configuration
 		"neovim/nvim-lspconfig",
 		config = function()
-			-- Enable the following language servers
-			local servers = {
-				ts_ls = {
-					on_attach = on_attach,
-					capabilities = capabilities,
-					init_options = {
-						plugins = { -- I think this was my breakthrough that made it work
-							{
-								name = "@vue/typescript-plugin",
-								location = "/usr/local/lib/node_modules/@vue/language-server",
-								languages = { "vue" },
-							},
-						},
-					},
-					filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact", "vue" },
-				},
-				vue_ls = {},
-				lua_ls = {
-					settings = {
-						Lua = {
-							completion = {
-								callSnippet = "Replace",
-							},
-						},
-					},
-				},
-				gopls = {},
-			}
-
-			-- Ensure the servers and tools above are installed
-			local ensure_installed = vim.tbl_keys(servers or {})
-			vim.list_extend(ensure_installed, {
-				"stylua", -- Used to format Lua code
-			})
-			require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
-
 			require("mason-lspconfig").setup({
-				ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
+				ensure_installed = {
+					"vtsls",
+					"vue_ls",
+					"eslint",
+					"tailwindcss",
+					"emmet_language_server",
+					"lua_ls",
+					"hyprls",
+				},
+				automatic_enable = true,
 				automatic_installation = false,
-				handlers = {
-					function(server_name)
-						local server = servers[server_name] or {} -- This handles overriding only values explicitly passed
-						-- by the server configuration above. Useful when disabling
-						-- certain features of an LSP (for example, turning off formatting for ts_ls)
-						server.capabilities = vim.tbl_deep_extend("force", {}, capabilities, server.capabilities or {})
-						require("lspconfig")[server_name].setup(server)
-					end,
+			})
+
+			vim.lsp.config("tailwindcss", {
+				filetypes = {
+					"aspnetcorerazor",
+					"astro",
+					"astro-markdown",
+					"blade",
+					"clojure",
+					"django-html",
+					"htmldjango",
+					"edge",
+					"eelixir",
+					"elixir",
+					"ejs",
+					"erb",
+					"eruby",
+					"gohtml",
+					"gohtmltmpl",
+					"haml",
+					"handlebars",
+					"hbs",
+					"html",
+					"htmlangular",
+					"html-eex",
+					"heex",
+					"jade",
+					"leaf",
+					"liquid",
+					"markdown",
+					"mdx",
+					"mustache",
+					"njk",
+					"nunjucks",
+					"php",
+					"razor",
+					"slim",
+					"twig",
+					"css",
+					"less",
+					"postcss",
+					"sass",
+					"scss",
+					"stylus",
+					"sugarss",
+					"javascript",
+					"javascriptreact",
+					"reason",
+					"rescript",
+					"typescript",
+					"typescriptreact",
+					"vue",
+					"svelte",
+					"templ",
+				},
+				{
+					tailwindCSS = {
+						classAttributes = { "class", "className", "class:list", "classList", "ngClass" },
+						includeLanguages = {
+							eelixir = "html-eex",
+							elixir = "phoenix-heex",
+							eruby = "erb",
+							heex = "phoenix-heex",
+							htmlangular = "html",
+							templ = "html",
+						},
+						lint = {
+							cssConflict = "warning",
+							invalidApply = "error",
+							invalidConfigPath = "error",
+							invalidScreen = "error",
+							invalidTailwindDirective = "error",
+							invalidVariant = "error",
+							recommendedVariantOrder = "warning",
+						},
+						validate = true,
+					},
 				},
 			})
+
+			vim.lsp.config("hyprls", {})
+
+			vim.lsp.config("vue_ls", {
+				filetypes = { "vue" },
+			})
+
+			vim.lsp.config("vtsls", {
+				filetypes = {
+					"javascript",
+					"javascriptreact",
+					"javascript.jsx",
+					"typescript",
+					"typescriptreact",
+					"typescript.tsx",
+					"vue",
+				},
+				settings = {
+					vtsls = { tsserver = { globalPlugins = {} } },
+					typescript = {
+						inlayHints = {
+							parameterNames = { enabled = "literals" },
+							parameterTypes = { enabled = true },
+							variableTypes = { enabled = true },
+							propertyDeclarationTypes = { enabled = true },
+							functionLikeReturnTypes = { enabled = true },
+							enumMemberValues = { enabled = true },
+						},
+					},
+				},
+				before_init = function(_, config)
+					table.insert(config.settings.vtsls.tsserver.globalPlugins, {
+						name = "@vue/typescript-plugin",
+						location = vim.fn.expand(
+							"$MASON/packages/vue-language-server/node_modules/@vue/language-server"
+						),
+						languages = { "vue" },
+						configNamespace = "typescript",
+						enableForWorkspaceTypeScriptVersions = true,
+					})
+				end,
+				on_attach = function(client)
+					client.server_capabilities.documentFormattingProvider = true
+					client.server_capabilities.documentRangeFormattingProvider = true
+				end,
+			})
+
+			vim.lsp.config("emmet_language_server", {
+				filetypes = {
+					"css",
+					"eruby",
+					"html",
+					"javascript",
+					"javascriptreact",
+					"less",
+					"sass",
+					"scss",
+					"pug",
+					"typescriptreact",
+					"vue",
+				},
+			})
+
+			vim.lsp.config("lua_ls", {
+				on_attach = function(client)
+					client.server_capabilities.documentFormattingProvider = false
+					client.server_capabilities.documentRangeFormattingProvider = false
+				end,
+				settings = {
+					Lua = {
+						workspace = {
+							checkThirdParty = false,
+						},
+						completion = {
+							callSnippet = "Replace",
+						},
+						telemetry = {
+							enable = false,
+						},
+						diagnostics = {
+							globals = { "vim" },
+						},
+					},
+				},
+			})
+			require("lspconfig").jdtls.setup({})
+
 			vim.api.nvim_create_autocmd("LspAttach", {
 				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
 				callback = function(event)
@@ -205,6 +334,7 @@ local lsp_plugins_table = {
 			{ "mason-org/mason.nvim", opts = {} },
 			"mason-org/mason-lspconfig.nvim",
 			"WhoIsSethDaniel/mason-tool-installer.nvim",
+			"nvim-java/nvim-java",
 
 			-- Useful status updates for LSP.
 			{ "j-hui/fidget.nvim", opts = {} },
@@ -307,6 +437,17 @@ local lsp_plugins_table = {
 				{ path = "${3rd}/luv/library", words = { "vim%.uv" } },
 			},
 		},
+	},
+	{
+		"rushjs1/nuxt-goto.nvim",
+		ft = "vue",
+		-- enable keybinds for available lsp server
+		on_attach = function(client, bufnr)
+			local opts = { noremap = true, silent = true, buffer = bufnr }
+
+			--set keybind for go to definition
+			vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+		end,
 	},
 }
 
