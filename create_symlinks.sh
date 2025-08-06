@@ -117,12 +117,20 @@ link_karabiner() {
     create_hard_links_from_dir "$SOURCE_ROOT/karabiner" "$dest_dir"
 }
 
+# --- Zellij ---
+link_zellij() {
+    local default_dest="$HOME/.config/zellij"
+    read -p "Enter destination directory for zellij configs (default: $default_dest): " dest_dir
+    dest_dir=${dest_dir:-$default_dest}
+    create_hard_links_from_dir "$SOURCE_ROOT/zellij" "$dest_dir"
+}
+
 # --- Main Execution Logic ---
 echo "This script will help you set up your configuration files by creating hard links."
 echo "You will be prompted to select a configuration category to link."
 echo
 
-OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "All" "Quit")
+OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "All" "Quit")
 
 while true; do
     echo "Select an option to link:"
@@ -154,12 +162,18 @@ while true; do
                 echo
                 break
                 ;;
+            "Zellij")
+                link_zellij
+                echo
+                break
+                ;;
             "All")
                 link_scripts
                 link_dotfiles
                 link_nvim
                 link_tmuxinator
                 link_karabiner
+                link_zellij
                 echo
                 break
                 ;;

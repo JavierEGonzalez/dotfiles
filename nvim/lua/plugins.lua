@@ -437,5 +437,21 @@ require("lazy").setup({
 		end,
 		version = "*",
 	},
+	"sindrets/diffview.nvim",
+	{
+		"mistweaverco/kulala.nvim",
+		keys = {
+			{ "<leader>Rs", desc = "Send request" },
+			{ "<leader>Ra", desc = "Send all requests" },
+			{ "<leader>Rb", desc = "Open scratchpad" },
+		},
+		ft = { "http", "rest" },
+		opts = {
+			global_keymaps = true,
+			global_keymaps_prefix = "<leader>R",
+			kulala_keymaps_prefix = "",
+			halt_on_error = false, -- if true, will stop processing requests on error
+		},
+	},
 	lsp_plugin_table,
 })
