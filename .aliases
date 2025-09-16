@@ -28,7 +28,11 @@ alias aibash="sh $script_dir/scripts/workers_ai.sh"
 function ask_ai(){
   sh $script_dir/scripts/workers_ai.sh $1 $script_dir/scripts/workers_ai_general_question
 }
+function ask_ia(){
+  sh $script_dir/scripts/workers_ai.sh $1 $script_dir/scripts/workers_ai_pregunta
+}
 alias ai=ask_ai
+alias ia=ask_ia
 
 alias lvim=~/.local/bin/lvim
 
