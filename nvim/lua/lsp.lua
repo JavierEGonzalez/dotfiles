@@ -12,6 +12,7 @@ local lsp_plugins_table = {
 					"emmet_language_server",
 					"lua_ls",
 					"hyprls",
+					"gopls",
 				},
 				automatic_enable = true,
 				automatic_installation = false,
@@ -179,7 +180,9 @@ local lsp_plugins_table = {
 					},
 				},
 			})
-			require("lspconfig").jdtls.setup({})
+			local lsp = require("lspconfig")
+			lsp.jdtls.setup({})
+			lsp.gopls.setup({})
 
 			vim.api.nvim_create_autocmd("LspAttach", {
 				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
@@ -449,6 +452,7 @@ local lsp_plugins_table = {
 			vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
 		end,
 	},
+	"fatih/vim-go",
 }
 
 return lsp_plugins_table

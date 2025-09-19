@@ -125,12 +125,21 @@ link_zellij() {
     create_hard_links_from_dir "$SOURCE_ROOT/zellij" "$dest_dir"
 }
 
+# --- Aerospace ---
+link_aerospace() {
+    local dest_dir="$HOME/.config/aerospace"
+    mkdir -p "$dest_dir"
+    echo "Linking aerospace config to $dest_dir..."
+    ln -f "$SOURCE_ROOT/aerospace/aerospace.toml" "$dest_dir/.aerospace.toml"
+    echo "Done linking aerospace config."
+}
+
 # --- Main Execution Logic ---
 echo "This script will help you set up your configuration files by creating hard links."
 echo "You will be prompted to select a configuration category to link."
 echo
 
-OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "All" "Quit")
+OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "All" "Quit")
 
 while true; do
     echo "Select an option to link:"
@@ -167,6 +176,11 @@ while true; do
                 echo
                 break
                 ;;
+            "Aerospace")
+                link_aerospace
+                echo
+                break
+                ;;
             "All")
                 link_scripts
                 link_dotfiles
@@ -174,6 +188,7 @@ while true; do
                 link_tmuxinator
                 link_karabiner
                 link_zellij
+                link_aerospace
                 echo
                 break
                 ;;
