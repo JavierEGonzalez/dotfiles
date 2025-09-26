@@ -64,7 +64,7 @@ alias lc=lastCommit
 
 alias gc="sh $script_dir/scripts/git_commit.sh"
 alias gcp="sh $script_dir/scripts/git_commit_prev_ticket.sh"
-gct() {
+function gct() {
   sh $script_dir/scripts/git_commit_session_ticket.sh "$@"
   if command -v tmux >/dev/null 2>&1; then
     local env_line
@@ -86,7 +86,7 @@ if [ -n "$TMUX" ]; then
   [ -n "$env_line" ] && export ticket="${env_line#ticket=}"
 fi
 
-gtt() {
+function gtt() {
   if [ -n "$ticket" ]; then
     echo "$ticket"
     return 0
