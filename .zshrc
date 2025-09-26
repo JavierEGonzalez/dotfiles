@@ -114,3 +114,4 @@ fi
 
 
 export PATH="$HOME/.local/bin:$PATH"
+source <(COMPLETE=zsh tms)
