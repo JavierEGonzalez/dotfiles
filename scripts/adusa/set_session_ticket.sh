@@ -26,3 +26,4 @@ if [[ $1 ]]; then
 else
   echo "No ticket passed as param"
 fi
+
