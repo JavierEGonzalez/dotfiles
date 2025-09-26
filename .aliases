@@ -64,8 +64,43 @@ alias lc=lastCommit
 
 alias gc="sh $script_dir/scripts/git_commit.sh"
 alias gcp="sh $script_dir/scripts/git_commit_prev_ticket.sh"
-alias gct="sh $script_dir/scripts/git_commit_session_ticket.sh"
+gct() {
+  sh $script_dir/scripts/git_commit_session_ticket.sh "$@"
+  if command -v tmux >/dev/null 2>&1; then
+    local env_line
+    env_line=$(tmux showenv -g ticket 2>/dev/null | grep '^ticket=' || true)
+    if [ -n "$env_line" ]; then
+      export ticket="${env_line#ticket=}"
+      echo "Exported ticket to current shell: $ticket"
+    else
+      echo "No ticket found in tmux environment."
+    fi
+  else
+    echo "tmux not available; cannot sync ticket."
+  fi
+}
 
+# Auto-import tmux ticket into new shell sessions
+if [ -n "$TMUX" ]; then
+  env_line=$(tmux showenv -g ticket 2>/dev/null | grep '^ticket=' || true)
+  [ -n "$env_line" ] && export ticket="${env_line#ticket=}"
+fi
+
+gtt() {
+  if [ -n "$ticket" ]; then
+    echo "$ticket"
+    return 0
+  fi
+  if command -v tmux >/dev/null 2>&1; then
+    local env_line
+    env_line=$(tmux showenv -g ticket 2>/dev/null | grep '^ticket=' || true)
+    if [ -n "$env_line" ]; then
+      echo "${env_line#ticket=}"
+      return 0
+    fi
+  fi
+  echo "No ticket set."
+}
 
 function setTicketOnShell() {
   source $script_dir/scripts/set_session_ticket.sh $1
