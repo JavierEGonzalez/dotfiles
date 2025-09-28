@@ -182,6 +182,7 @@ local lsp_plugins_table = {
 			})
 			local lsp = require("lspconfig")
 			lsp.jdtls.setup({})
+			lsp.clangd.setup({})
 			lsp.gopls.setup({})
 
 			vim.api.nvim_create_autocmd("LspAttach", {
@@ -227,7 +228,7 @@ local lsp_plugins_table = {
 
 					-- Execute a code action, usually your cursor needs to be on top of an error
 					-- or a suggestion from your LSP for this to activate.
-					map("gra", vim.lsp.buf.code_action, "[G]oto Code [A]ction", { "n", "x" })
+					map("ga", vim.lsp.buf.code_action, "[G]oto Code [A]ction", { "n", "x" })
 
 					-- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
 					---@param client vim.lsp.Client
