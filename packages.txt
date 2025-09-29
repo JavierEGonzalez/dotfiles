@@ -1,0 +1,8 @@
+brew
+aerospace
+tmux
+neovim
+lazygit
+gh
+git
+
