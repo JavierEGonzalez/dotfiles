@@ -253,14 +253,13 @@ require("lazy").setup({
 			-- use ` to open MiniFiles
 			vim.keymap.set("n", "`", function()
 				local buf_name = vim.api.nvim_buf_get_name(0)
-				if buf_name == "" or vim.bo.buftype ~= "" then
+				if buf_name == "" or not vim.uv.fs_stat(buf_name) then
 					-- If buffer is not a file, open mini.files with the current working directory
 					MiniFiles.open(vim.fn.getcwd(), false)
 				else
-					-- Otherwise, open with the current file's path
+					local res = vim.uv.fs_stat(buf_name)
 					MiniFiles.open(buf_name, false)
 				end
-				MiniFiles.reveal_cwd()
 			end, { desc = "Open File Tree" })
 
 			local map_split = function(buf_id, keymap, direction, close)
