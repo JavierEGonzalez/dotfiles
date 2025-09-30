@@ -41,11 +41,11 @@ alias lvim=~/.local/bin/lvim
 alias gtn='cd ~/workspace/nuclei/'
 alias gtncl='cd ~/workspace/nuclei/'
 
-alias gtcl='cd ~/workspace/pdl-web-frontend-prism-client/'
-alias gtsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/'
+alias gtcl='cd ~/workspace/client/'
+alias gtsho='cd ~/workspace/client/doc/alaska/shop/'
 
-alias stcl='cd ~/workspace/pdl-web-frontend-prism-client/ && sh start.sh 9443'
-alias stsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/ && yarn run dev'
+alias stcl='cd ~/workspace/client/ && sh start.sh 9443'
+alias stsho='cd ~/workspace/client/doc/alaska/shop/ && yarn run dev'
 
 alias opco="sh $script_dir/scripts/run_dev.sh"
 

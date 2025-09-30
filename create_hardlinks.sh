@@ -125,6 +125,19 @@ link_zellij() {
     create_hard_links_from_dir "$SOURCE_ROOT/zellij" "$dest_dir"
 }
 
+# --- Alacritty ---
+link_alacritty() {
+    local dest_dir="$HOME/.config/alacritty"
+    mkdir -p "$dest_dir"
+    if [ -f "$SOURCE_ROOT/alacritty.toml" ]; then
+        echo "Linking alacritty config to $dest_dir..."
+        ln -f "$SOURCE_ROOT/alacritty.toml" "$dest_dir/alacritty.toml"
+        echo "Done linking alacritty config."
+    else
+        echo "Warning: $SOURCE_ROOT/alacritty.toml not found."
+    fi
+}
+
 # --- Aerospace ---
 link_aerospace() {
     local dest_dir="$HOME/.config/aerospace"
@@ -139,7 +152,7 @@ echo "This script will help you set up your configuration files by creating hard
 echo "You will be prompted to select a configuration category to link."
 echo
 
-OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "All" "Quit")
+OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "Alacritty" "All" "Quit")
 
 while true; do
     echo "Select an option to link:"
@@ -181,6 +194,11 @@ while true; do
                 echo
                 break
                 ;;
+            "Alacritty")
+                link_alacritty
+                echo
+                break
+                ;;
             "All")
                 link_scripts
                 link_dotfiles
@@ -189,6 +207,7 @@ while true; do
                 link_karabiner
                 link_zellij
                 link_aerospace
+                link_alacritty
                 echo
                 break
                 ;;
