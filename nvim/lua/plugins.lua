@@ -323,69 +323,6 @@ require("lazy").setup({
 		end,
 	},
 	{
-		"ldelossa/gh.nvim",
-		dependencies = {
-			{
-				"ldelossa/litee.nvim",
-				config = function()
-					require("litee.lib").setup()
-				end,
-			},
-		},
-		config = function()
-			require("litee.gh").setup()
-		end,
-	},
-	--{
-	--	"zbirenbaum/copilot.lua",
-	--	cmd = "Copilot",
-	--	event = "InsertEnter",
-	--	config = function()
-	--		require("copilot").setup({
-	--			panel = {
-	--				enabled = true,
-	--				auto_refresh = false,
-	--				keymap = {
-	--					jump_prev = "[[",
-	--					jump_next = "]]",
-	--					accept = "<CR>",
-	--					refresh = "gr",
-	--					open = "<C-space>",
-	--				},
-	--				layout = {
-	--					position = "bottom", -- | top | left | right
-	--					ratio = 0.4,
-	--				},
-	--			},
-	--			suggestion = {
-	--				enabled = true,
-	--				auto_trigger = false,
-	--				hide_during_completion = true,
-	--				debounce = 75,
-	--				keymap = {
-	--					accept = "<M-l>",
-	--					accept_word = false,
-	--					accept_line = false,
-	--					next = "<M-]>",
-	--					prev = "<M-[>",
-	--					dismiss = "<C-]>",
-	--				},
-	--			},
-	--			filetypes = {
-	--				markdown = false, -- overrides global
-	--				terraform = false, -- disallow specific filetype
-	--				sh = function()
-	--					if string.match(vim.fs.basename(vim.api.nvim_buf_get_name(0)), "^%.env.*") then
-	--						-- disable for .env files
-	--						return false
-	--					end
-	--					return true
-	--				end,
-	--			},
-	--		})
-	--	end,
-	--},
-	{
 		"CopilotC-Nvim/CopilotChat.nvim",
 		dependencies = {
 			{ "github/copilot.vim" }, -- or zbirenbaum/copilot.lua
@@ -410,7 +347,7 @@ require("lazy").setup({
 	{
 		"https://github.com/aaronik/treewalker.nvim",
 		opts = {
-			highlight = true, -- default is false
+			highlight = true,
 		},
 	},
 	{ -- annotations like tsdoc
