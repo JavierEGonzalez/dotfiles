@@ -1,3 +1,13 @@
 [font]
 size = 21.0
 normal = { family = "FiraCode Nerd Font Mono", style = "Regular" }
+
+[[keyboard.bindings]]
+key = "F"
+mods = "Command"
+action = "None"
+
+[general]
+import = [
+    "~/.config/alacritty/themes/themes/dark_plus.toml"
+]
