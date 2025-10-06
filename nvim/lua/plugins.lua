@@ -323,6 +323,19 @@ require("lazy").setup({
 		end,
 	},
 	{
+		"folke/sidekick.nvim",
+		opts = {
+			cli = {
+				mux = {
+					backend = "tmux",
+					enabled = true,
+				},
+			},
+		},
+		keys = {
+		},
+	},
+	{
 		"CopilotC-Nvim/CopilotChat.nvim",
 		dependencies = {
 			{ "github/copilot.vim" }, -- or zbirenbaum/copilot.lua
