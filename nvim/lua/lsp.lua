@@ -185,6 +185,11 @@ local lsp_plugins_table = {
 			lsp.clangd.setup({})
 			lsp.gopls.setup({})
 
+			-- Setup Copilot LSP
+			lsp.copilot.setup({
+				capabilities = require("blink.cmp").get_lsp_capabilities(),
+			})
+
 			vim.api.nvim_create_autocmd("LspAttach", {
 				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
 				callback = function(event)
@@ -345,6 +350,12 @@ local lsp_plugins_table = {
 
 			-- Allows extra capabilities provided by blink.cmp
 			"saghen/blink.cmp",
+
+			-- Copilot integration for blink.cmp
+			{
+				"giuxtaposition/blink-cmp-copilot",
+				dependencies = { "zbirenbaum/copilot.lua" },
+			},
 		},
 	},
 	{ -- Autoformat
@@ -419,9 +430,15 @@ local lsp_plugins_table = {
 			},
 
 			sources = {
-				default = { "lsp", "path", "snippets", "lazydev" },
+				default = { "lsp", "path", "snippets", "lazydev", "copilot" },
 				providers = {
 					lazydev = { module = "lazydev.integrations.blink", score_offset = 100 },
+					copilot = {
+						name = "copilot",
+						module = "blink-cmp-copilot",
+						score_offset = 100,
+						async = true,
+					},
 				},
 			},
 			snippets = { preset = "luasnip" },

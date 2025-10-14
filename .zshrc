@@ -117,4 +117,5 @@ fi
 
 
 export PATH="$HOME/.local/bin:$PATH"
+export NODE_EXTRA_CA_CERTS=/Users/p70009t/.scratch/zscaler_root.cer
 source <(COMPLETE=zsh tms)
