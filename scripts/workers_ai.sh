@@ -38,6 +38,7 @@ if [ "$USE_DEFAULT_BASH_ASSISTANT_PROMPT" = true ]; then
   echo "Do you want to execute the command? (y/n)"
   read -r CONFIRMATION
   if [[ "$CONFIRMATION" == "y" ]]; then
+    echo "Getting Command"
     COMMAND=$(< /tmp/workers_ai_response.sh)
     echo "Executing command: $COMMAND"
     eval "$COMMAND"

@@ -13,6 +13,7 @@ local lsp_plugins_table = {
 					"lua_ls",
 					"hyprls",
 					"gopls",
+					"copilot",
 				},
 				automatic_enable = true,
 				automatic_installation = false,
@@ -184,8 +185,6 @@ local lsp_plugins_table = {
 			lsp.jdtls.setup({})
 			lsp.clangd.setup({})
 			lsp.gopls.setup({})
-
-			-- Setup Copilot LSP
 			lsp.copilot.setup({
 				capabilities = require("blink.cmp").get_lsp_capabilities(),
 			})

@@ -1,5 +1,5 @@
+-- last updated: 2024-06-19
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-
 local lsp_plugin_table = require("lsp")
 
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
@@ -19,14 +19,13 @@ end ---@diagnostic disable-next-line: undefined-field
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
-	-- sleuth for normalizing tab width based on file
 	"tpope/vim-sleuth",
 	{
 		"m4xshen/autoclose.nvim",
 		config = function()
 			require("autoclose").setup({
 				keys = {
-					["("] = { escape = false, close = true, pair = "()" },
+					["("] = { escape = true, close = true, pair = "()" },
 					["["] = { escape = false, close = true, pair = "[]" },
 					["{"] = { escape = false, close = true, pair = "{}" },
 
@@ -180,7 +179,7 @@ require("lazy").setup({
 				--
 				-- - ysaiw) - [YS]urround [A]dd [I]nner [W]ord [)]Paren
 				-- - ysd'   - [S]urround [D]elete [']quotes
-				-- - sr)'  - [S]urround [R]eplace [)] [']
+				-- - yr)'  - [S]urround [R]eplace [)] [']
 				mappings = {
 					add = "ys", -- Add surrounding in Normal and Visual modes
 					delete = "yd", -- Delete surrounding
@@ -326,15 +325,15 @@ require("lazy").setup({
 		"folke/sidekick.nvim",
 		opts = {
 			cli = {
-				mux = {
-					backend = "tmux",
-					enabled = true,
-				},
+				-- mux = {
+				-- backend = "tmux",
+				-- enabled = true,
+				-- },
 			},
 		},
 		keys = {
 			{
-				"<tab>",
+				"C-y",
 				function()
 					-- if there is a next edit, jump to it, otherwise apply it if any
 					if not require("sidekick").nes_jump_or_apply() then
@@ -357,7 +356,7 @@ require("lazy").setup({
 					require("sidekick.cli").select({ filter = { installed = true } })
 				end,
 				-- Or to select only installed tools:
-				
+
 				desc = "Select CLI",
 			},
 			{
@@ -398,26 +397,38 @@ require("lazy").setup({
 				mode = { "n", "x" },
 				desc = "Sidekick Select Prompt",
 			},
-			-- Example of a keybinding to open Claude directly
 			{
 				"<leader>ac",
 				function()
-					require("sidekick.cli").toggle({ name = "claude", focus = true })
+					require("sidekick.cli").toggle({ name = "opencode", focus = true })
 				end,
-				desc = "Sidekick Toggle Claude",
+				desc = "Sidekick Toggle Opencode",
 			},
 		},
 	},
 	{
-		"zbirenbaum/copilot.lua",
-		cmd = "Copilot",
-		event = "InsertEnter",
-		config = function()
-			require("copilot").setup({
-				suggestion = { enabled = false },
-				panel = { enabled = false },
-			})
-		end,
+		"saghen/blink.cmp",
+		dependencies = {
+			{
+				"giuxtaposition/blink-cmp-copilot",
+			},
+		},
+		opts = {
+			keymap = {
+				["<C-o>"] = { "show", "show_documentation", "hide_documentation" },
+			},
+			sources = {
+				default = { "lsp", "path", "snippets", "buffer", "copilot" },
+				providers = {
+					copilot = {
+						name = "copilot",
+						module = "blink-cmp-copilot",
+						score_offset = 100,
+						async = true,
+					},
+				},
+			},
+		},
 	},
 	{
 		"CopilotC-Nvim/CopilotChat.nvim",
@@ -429,6 +440,34 @@ require("lazy").setup({
 		opts = {
 			-- See Configuration section for options
 		},
+		config = function()
+			require("copilot").setup({
+				suggestion = {
+					enabled = true,
+					auto_trigger = false,
+					hide_during_completion = true,
+					debounce = 75,
+					trigger_on_accept = true,
+					keymap = {
+						accept = "<C-y>",
+						accept_word = false,
+						accept_line = false,
+						next = "<C-\\>",
+						prev = "<C-/>",
+						dismiss = "<C-[>",
+					},
+				},
+				panel = { enabled = false },
+			})
+			-- setup keybinds
+			vim.keymap.set("n", "<leader>]]", function()
+				require("copilot.command").enable()
+				require("copilot.suggestion").next()
+			end, { expr = true, desc = "Enable Copilot Suggestions" })
+			vim.keymap.set("n", "<leader>[]", function()
+				require("copilot.command").disable()
+			end, { expr = true, desc = "Disable Copilot Suggestions" })
+		end,
 	},
 	{
 		"claydugo/browsher.nvim",
