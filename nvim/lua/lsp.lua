@@ -16,7 +16,7 @@ local lsp_plugins_table = {
 					"copilot",
 				},
 				automatic_enable = true,
-				automatic_installation = false,
+				automatic_installation = true,
 			})
 
 			vim.lsp.config("tailwindcss", {
@@ -186,6 +186,7 @@ local lsp_plugins_table = {
 			lsp.clangd.setup({})
 			lsp.gopls.setup({})
 			lsp.copilot.setup({
+				cmd = {'copilot-node-server', '--stdio'},
 				capabilities = require("blink.cmp").get_lsp_capabilities(),
 			})
 

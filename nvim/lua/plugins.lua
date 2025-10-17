@@ -19,6 +19,7 @@ end ---@diagnostic disable-next-line: undefined-field
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
+	lsp_plugin_table,
 	"tpope/vim-sleuth",
 	{
 		"m4xshen/autoclose.nvim",
@@ -71,6 +72,67 @@ require("lazy").setup({
 				changedelete = { text = "~" },
 			},
 		},
+		config = function()
+			require("gitsigns").setup({
+				on_attach = function(bufnr)
+					local gitsigns = require("gitsigns")
+
+					local function map(mode, l, r, opts)
+						opts = opts or {}
+						opts.buffer = bufnr
+						vim.keymap.set(mode, l, r, opts)
+					end
+
+					-- Navigation
+					map("n", "]c", function()
+						if vim.wo.diff then
+							vim.cmd.normal({ "]c", bang = true })
+						else
+							gitsigns.nav_hunk("next")
+						end
+					end)
+
+					map("n", "[c", function()
+						if vim.wo.diff then
+							vim.cmd.normal({ "[c", bang = true })
+						else
+							gitsigns.nav_hunk("prev")
+						end
+					end)
+
+					-- Actions
+					map("n", "<leader>Gs", gitsigns.stage_hunk)
+					map("n", "<leader>Gr", gitsigns.reset_hunk)
+
+					map("v", "<leader>Gs", function()
+						gitsigns.stage_hunk({ vim.fn.line("."), vim.fn.line("v") })
+					end)
+
+					map("v", "<leader>Gr", function()
+						gitsigns.reset_hunk({ vim.fn.line("."), vim.fn.line("v") })
+					end)
+
+					map("n", "<leader>GS", gitsigns.stage_buffer)
+					map("n", "<leader>GR", gitsigns.reset_buffer)
+					map("n", "<leader>Gp", gitsigns.preview_hunk)
+					map("n", "<leader>Gi", gitsigns.preview_hunk_inline)
+
+					map("n", "<leader>gd", gitsigns.diffthis)
+
+					map("n", "<leader>gD", function()
+						gitsigns.diffthis("~")
+					end)
+					map("n", "<leader>gB", gitsigns.blame)
+
+					-- Toggles
+					map("n", "<leader>gb", gitsigns.toggle_current_line_blame)
+					map("n", "<leader>gw", gitsigns.toggle_word_diff)
+
+					-- Text object
+					map({ "o", "x" }, "ih", gitsigns.select_hunk)
+				end,
+			})
+		end,
 	},
 	{
 		-- Fuzzy Finder (files, lsp, etc)
@@ -407,30 +469,6 @@ require("lazy").setup({
 		},
 	},
 	{
-		"saghen/blink.cmp",
-		dependencies = {
-			{
-				"giuxtaposition/blink-cmp-copilot",
-			},
-		},
-		opts = {
-			keymap = {
-				["<C-o>"] = { "show", "show_documentation", "hide_documentation" },
-			},
-			sources = {
-				default = { "lsp", "path", "snippets", "buffer", "copilot" },
-				providers = {
-					copilot = {
-						name = "copilot",
-						module = "blink-cmp-copilot",
-						score_offset = 100,
-						async = true,
-					},
-				},
-			},
-		},
-	},
-	{
 		"CopilotC-Nvim/CopilotChat.nvim",
 		dependencies = {
 			{ "zbirenbaum/copilot.lua" },
@@ -449,7 +487,8 @@ require("lazy").setup({
 					debounce = 75,
 					trigger_on_accept = true,
 					keymap = {
-						accept = "<C-y>",
+						-- tab to accept, ctrl+enter to accept line
+						accept = "<Tab>",
 						accept_word = false,
 						accept_line = false,
 						next = "<C-\\>",
@@ -514,5 +553,4 @@ require("lazy").setup({
 			halt_on_error = false, -- if true, will stop processing requests on error
 		},
 	},
-	lsp_plugin_table,
 })
