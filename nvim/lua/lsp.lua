@@ -13,7 +13,6 @@ local lsp_plugins_table = {
 					"lua_ls",
 					"hyprls",
 					"gopls",
-					"copilot",
 				},
 				automatic_enable = true,
 				automatic_installation = true,
@@ -185,10 +184,7 @@ local lsp_plugins_table = {
 			lsp.jdtls.setup({})
 			lsp.clangd.setup({})
 			lsp.gopls.setup({})
-			lsp.copilot.setup({
-				cmd = {'copilot-node-server', '--stdio'},
-				capabilities = require("blink.cmp").get_lsp_capabilities(),
-			})
+		
 
 			vim.api.nvim_create_autocmd("LspAttach", {
 				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),

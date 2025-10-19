@@ -387,10 +387,10 @@ require("lazy").setup({
 		"folke/sidekick.nvim",
 		opts = {
 			cli = {
-				-- mux = {
-				-- backend = "tmux",
-				-- enabled = true,
-				-- },
+				mux = {
+				  backend = "tmux",
+				  enabled = true,
+				},
 			},
 		},
 		keys = {
@@ -422,7 +422,7 @@ require("lazy").setup({
 				desc = "Select CLI",
 			},
 			{
-				"<leader>ad",
+	 			"<leader>ad",
 				function()
 					require("sidekick.cli").close()
 				end,
@@ -487,8 +487,7 @@ require("lazy").setup({
 					debounce = 75,
 					trigger_on_accept = true,
 					keymap = {
-						-- tab to accept, ctrl+enter to accept line
-						accept = "<Tab>",
+						accept = "<C-y>",
 						accept_word = false,
 						accept_line = false,
 						next = "<C-\\>",
