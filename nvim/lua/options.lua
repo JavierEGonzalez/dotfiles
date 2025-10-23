@@ -43,3 +43,4 @@ vim.g.have_nerd_font = true
 
 -- set up grep as the default search tool and exclude common directories I want to ignore
 -- vim.opt.grepprg = "grep -rn --exclude-dir={.nuxt,dist,.generated,node_modules,.git,.yarn,.output} --exclude=yarn.lock"
+vim.opt.grepprg = "rg -uu -g '!node_modules/' --vimgrep"

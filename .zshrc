@@ -99,8 +99,6 @@ alias l='ls -CF'
 
 set -o vi
 
-alias gitgraph='git log --graph --pretty="%C(Yellow)%h  %C(reset)%ad (%C(Green)%cr%C(reset))%x09 %C(Cyan)%an: %C(reset)%s" --date=short'
-
 export PATH="$HOME/.jenv/bin:$PATH"
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 
