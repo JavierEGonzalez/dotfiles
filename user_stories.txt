@@ -1,0 +1,11 @@
+ai_bash.sh user stories:
+
+1. As a developer, I want to have a quick way to write a natural language requirement that will be executed in my shell.
+1a. I should be able to simply type into my terminal and the output should be runnable on pressing enter.
+1b. If the output is incorrect, I should be able to have these options:
+  - Go into conversation mode in order to provide more context and get a corrected output.
+  - Go into editor mode in order to manually edit the output before running it.
+  - Go into doc mode with the target to learn and verify the command.
+    - Going into doc mode should prefer man pages, then help pages, then online docs, and lastly asking a coding llm.
+  - Exit without running anything.
+1c. Have a redo command that will re-run the last command that was executed. Effectively go into last prompt.

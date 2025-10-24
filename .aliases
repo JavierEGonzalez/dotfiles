@@ -24,19 +24,7 @@ alias vim='nvim'
 alias nv='nvim'
 alias v='nvim'
 
-# AI helper aliases / functions
-# ai: general prompt (English) non-interactive
-ai() { sh "$script_dir/scripts/workers_ai.sh" "$*"; }
-
-# ia: Spanish prompt non-interactive
-ia() { sh "$script_dir/scripts/workers_ai.sh" "$*" "$script_dir/scripts/workers_ai_pregunta"; }
-
-# aibash: interactive bash assistant prompt
-#aibash invokes interactive mode with bash assistant system prompt
-#aibashredo re-executes last generated command
-
-aibash() { sh "$script_dir/scripts/workers_ai.sh" -i --system-file "$script_dir/scripts/workers_ai_bash_assistant_prompt"; }
-alias aibashredo="$(< /tmp/workers_ai_response.sh)"
+alias ai="$script_dir/scripts/workers_ai.sh"
 
 alias lvim=~/.local/bin/lvim
 

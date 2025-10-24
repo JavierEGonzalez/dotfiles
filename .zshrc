@@ -88,6 +88,13 @@ alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
+if which rg >/dev/null 2>&1; then
+  alias gr='rg'
+else
+  alias gr='grep -r'
+fi
+
+
 # colored GCC warnings and errors
 #export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
 
@@ -116,4 +123,8 @@ fi
 
 export PATH="$HOME/.local/bin:$PATH"
 export NODE_EXTRA_CA_CERTS=/Users/p70009t/.scratch/zscaler_root.cer
-source <(COMPLETE=zsh tms)
+
+if [[ "$PROFILE_STARTUP" == true ]]; then
+    unsetopt xtrace
+    exec 2>&3 3>&-
+fi

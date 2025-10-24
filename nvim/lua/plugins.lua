@@ -523,6 +523,18 @@ require("lazy").setup({
 		opts = {
 			highlight = true,
 		},
+		config = function ()
+			vim.keymap.set({ 'n', 'v' }, '<up>', '<cmd>Treewalker Up<cr>', { silent = true })
+			vim.keymap.set({ 'n', 'v' }, '<down>', '<cmd>Treewalker Down<cr>', { silent = true })
+			vim.keymap.set({ 'n', 'v' }, '<left>', '<cmd>Treewalker Left<cr>', { silent = true })
+			vim.keymap.set({ 'n', 'v' }, '<right>', '<cmd>Treewalker Right<cr>', { silent = true })
+
+			-- swapping
+			vim.keymap.set('n', '<leader><up>', '<cmd>Treewalker SwapUp<cr>', { silent = true })
+			vim.keymap.set('n', '<leader><right>', '<cmd>Treewalker SwapRight<cr>', { silent = true })
+			vim.keymap.set('n', '<leader><left>', '<cmd>Treewalker SwapLeft<cr>', { silent = true })
+			vim.keymap.set('n', '<leader><down>', '<cmd>Treewalker SwapDown<cr>', { silent = true })
+		end
 	},
 	{ -- annotations like tsdoc
 		"danymat/neogen",
