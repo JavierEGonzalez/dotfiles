@@ -5,9 +5,28 @@ set -e
 # Parse arguments
 tool="opencode"
 max_iterations=10
+model="github-copilot/gpt-4o"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
+    -m|--model)
+      model="$2"
+      shift 2
+      ;;
+    --model=*)
+      model="${1#*=}"
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: ralph.sh [-m|--model <model>] [max_iterations]"
+      echo ""
+      echo "Options:"
+      echo "  -m, --model   Model to pass to opencode (default: $model)"
+      echo ""
+      echo "Args:"
+      echo "  max_iterations  Number of iterations to run (default: $max_iterations)"
+      exit 0
+      ;;
     *)
       # Assume it's max_iterations if it's a number
       if [[ "$1" =~ ^[0-9]+$ ]]; then
@@ -53,7 +72,7 @@ if [ ! -f "$progress_file" ]; then
   echo "---" >> "$progress_file"
 fi
 
-echo "Starting Ralph - Tool: $tool - Max iterations: $max_iterations"
+echo "Starting Ralph - Tool: $tool - Model: $model - Max iterations: $max_iterations"
 echo "Project root: $project_root"
 echo "PRD location: $prd_file"
 
@@ -66,7 +85,7 @@ for i in $(seq 1 $max_iterations); do
   echo "  Ralph Iteration $i of $max_iterations ($tool)"
   echo "==============================================================="
 
-  OUTPUT=$(opencode run 'use ralph-implementer skill to work on the current prd' -m github-copilot/gpt-4o 2>&1 | tee /dev/stderr) || true
+  OUTPUT=$(opencode run 'use ralph-implementer skill to work on a single task of the current prd' -m "$model" 2>&1 | tee /dev/stderr) || true
   
   # Check for completion signal
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then

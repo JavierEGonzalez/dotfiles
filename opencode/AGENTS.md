@@ -1,1 +1,1 @@
-After every implementation of code, run compile lint and test for the whole project and fix whatever issues apear. 
+After implementing a line of code, make a test and run tests and linting.
