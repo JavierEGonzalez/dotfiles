@@ -196,7 +196,7 @@ require("lazy").setup({
 		lazy = false,
 		build = ":TSUpdate",
 		config = function()
-			require("nvim-treesitter.configs").setup({
+			require("nvim-treesitter").setup({
 				-- List of parsers to install
 				-- To add a new language:
 				--   1. Add the parser name to this list (e.g., "python", "rust", "markdown")
@@ -249,6 +249,49 @@ require("lazy").setup({
 				},
 			},
 		},
+	},
+	{
+		---@type LazySpec
+		"mikavilpas/yazi.nvim",
+		version = "*", -- use the latest stable version
+		event = "VeryLazy",
+		dependencies = {
+			{ "nvim-lua/plenary.nvim", lazy = true },
+		},
+		keys = {
+			{
+				"`",
+				mode = { "n", "v" },
+				"<cmd>Yazi<cr>",
+				desc = "Open yazi at the current file",
+			},
+			{
+				-- Open in the current working directory
+				"<leader>cw",
+				"<cmd>Yazi cwd<cr>",
+				desc = "Open the file manager in nvim's working directory",
+			},
+			{
+				"<leader>`",
+				"<cmd>Yazi toggle<cr>",
+				desc = "Resume the last yazi session",
+			},
+		},
+		---@type YaziConfig | {}
+		opts = {
+			-- if you want to open yazi instead of netrw, see below for more info
+			open_for_directories = false,
+			keymaps = {
+				show_help = "<f1>",
+			},
+		},
+		-- 👇 if you use `open_for_directories=true`, this is recommended
+		init = function()
+			-- mark netrw as loaded so it's not loaded at all.
+			--
+			-- More details: https://github.com/mikavilpas/yazi.nvim/issues/802
+			vim.g.loaded_netrwPlugin = 1
+		end,
 	},
 	{
 		"echasnovski/mini.nvim",
@@ -314,42 +357,42 @@ require("lazy").setup({
 				return "%2l:%-2v"
 			end
 
-			require("mini.files").setup({
-				content = {
-					filter = nil,
-					prefix = nil,
-					sort = nil,
-				},
-
-				-- Module mappings created only inside explorer.
-				-- Use `''` (empty string) to not create one.
-				mappings = {
-					close = "q",
-					go_in = "l",
-					go_in_plus = "<cr>",
-					go_out = "h",
-					go_out_plus = "H",
-					mark_goto = "'",
-					mark_set = "m",
-					reset = "<BS>",
-					reveal_cwd = "@",
-					show_help = "g?",
-					synchronize = "=",
-					trim_left = "<",
-					trim_right = ">",
-				},
-				options = {
-					permanent_delete = true,
-					use_as_default_explorer = true,
-				},
-				windows = {
-					max_number = math.huge,
-					preview = true,
-					width_focus = 50,
-					width_nofocus = 15,
-					width_preview = 25,
-				},
-			})
+			-- require("mini.files").setup({
+			-- 	content = {
+			-- 		filter = nil,
+			-- 		prefix = nil,
+			-- 		sort = nil,
+			-- 	},
+			--
+			-- 	-- Module mappings created only inside explorer.
+			-- 	-- Use `''` (empty string) to not create one.
+			-- 	mappings = {
+			-- 		close = "q",
+			-- 		go_in = "l",
+			-- 		go_in_plus = "<cr>",
+			-- 		go_out = "h",
+			-- 		go_out_plus = "H",
+			-- 		mark_goto = "'",
+			-- 		mark_set = "m",
+			-- 		reset = "<BS>",
+			-- 		reveal_cwd = "@",
+			-- 		show_help = "g?",
+			-- 		synchronize = "=",
+			-- 		trim_left = "<",
+			-- 		trim_right = ">",
+			-- 	},
+			-- 	options = {
+			-- 		permanent_delete = true,
+			-- 		use_as_default_explorer = true,
+			-- 	},
+			-- 	windows = {
+			-- 		max_number = math.huge,
+			-- 		preview = true,
+			-- 		width_focus = 50,
+			-- 		width_nofocus = 15,
+			-- 		width_preview = 25,
+			-- 	},
+			-- })
 
 			-- use ` to open MiniFiles
 			vim.keymap.set("n", "`", function()
