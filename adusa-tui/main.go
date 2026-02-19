@@ -11,6 +11,7 @@ import (
 type model struct {
 	worktreesScreen      screens.WorktreesModel
 	createWorktreeScreen screens.CreateWorktreeModel
+	deleteWorktreeScreen screens.DeleteWorktreeModel
 	view                 string
 }
 
@@ -22,6 +23,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.view {
 	case "create":
 		return m.updateCreateWorktree(msg)
+	case "delete":
+		return m.updateDeleteWorktree(msg)
 	default:
 		return m.updateWorktrees(msg)
 	}
@@ -41,7 +44,8 @@ func (m model) updateWorktrees(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.createWorktreeScreen = screens.NewCreateWorktreeModel()
 		return m, nil
 	case screens.DeleteWorktreeMsg:
-		fmt.Printf("Delete worktree: %s\n", msg.Worktree.Path)
+		m.view = "delete"
+		m.deleteWorktreeScreen = screens.NewDeleteWorktreeModel(msg.Worktree)
 		return m, nil
 	}
 
@@ -64,10 +68,29 @@ func (m model) updateCreateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m model) updateDeleteWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case screens.DeleteWorktreeDoneMsg:
+		m.view = ""
+		wt, _ := m.worktreesScreen.Refresh()
+		m.worktreesScreen = wt
+		return m, nil
+	case screens.DeleteWorktreeCancelledMsg:
+		m.view = ""
+		return m, nil
+	default:
+		newScreen, cmd := m.deleteWorktreeScreen.Update(msg)
+		m.deleteWorktreeScreen = newScreen.(screens.DeleteWorktreeModel)
+		return m, cmd
+	}
+}
+
 func (m model) View() string {
 	switch m.view {
 	case "create":
 		return m.createWorktreeScreen.View()
+	case "delete":
+		return m.deleteWorktreeScreen.View()
 	default:
 		return m.worktreesScreen.View()
 	}
