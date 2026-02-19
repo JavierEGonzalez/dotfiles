@@ -54,6 +54,7 @@ alias refine="nv $script_dir/refinement/tickets.txt"
 alias ref="sh $script_dir/scripts/adusa/add_ticket_to_refinement.sh"
 
 alias cb="sh $script_dir/scripts/adusa/checkout-branch.sh"
+alias worktree="sh $script_dir/scripts/adusa/worktree-checkout.sh"
 alias ctb="cb $ticket"
 
 
