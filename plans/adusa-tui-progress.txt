@@ -1,0 +1,57 @@
+# ADUSA TUI Progress
+
+## Completed: Chunk 1 - Project Setup ✅
+
+### What was done:
+1. Created directory structure at `~/workspace/dotfiles/adusa-tui/`
+2. Initialized Go module: `go mod init github.com/javiergonzalez/adusa-tui`
+3. Installed Bubble Tea dependencies:
+   - github.com/charmbracelet/bubbletea
+   - github.com/charmbracelet/bubbles
+   - github.com/charmbracelet/lipgloss
+4. Created basic `main.go` with tea.Program skeleton that:
+   - Responds to Ctrl+C to quit
+   - Has basic model struct with Init/Update/View methods
+5. Built binary successfully: `go build -o adusa-tui`
+6. Verified no lint errors with `go vet ./...`
+
+### Current state:
+- Binary location: `/Users/javiergonzalez/workspace/dotfiles/adusa-tui/adusa-tui`
+- The app runs and shows blank window, exits on Ctrl+C
+
+---
+
+## Learnings for Future Agents
+
+### To continue with Chunk 2:
+- Work in the `/Users/javiergonzalez/workspace/dotfiles/adusa-tui/` directory
+- Next step is creating `internal/config/config.go` for paths and credentials
+- Reference the chunks file at `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-chunks.md` for acceptance criteria
+- Reference the main plan at `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-plan.md` for detailed requirements
+
+### Key file paths:
+- Project root: `/Users/javiergonzalez/workspace/dotfiles/adusa-tui/`
+- Main entry: `main.go`
+- Chunk definitions: `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-chunks.md`
+- Detailed plan: `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-plan.md`
+
+### Build command:
+```bash
+cd /Users/javiergonzalez/workspace/dotfiles/adusa-tui && go build -o adusa-tui
+```
+
+### Lint command:
+```bash
+cd /Users/javiergonzalez/workspace/dotfiles/adusa-tui && go vet ./...
+```
+
+---
+
+## Next Chunk (Chunk 2): Core Types and Config
+Goal: Define core data types and configuration management
+Steps:
+1. Create `internal/config/config.go` - paths, credentials
+2. Create `internal/types/worktree.go` - Worktree struct
+3. Create `internal/types/ticket.go` - TicketInfo struct
+4. Create `internal/types/agent.go` - AgentStatus enum
+5. Create helper functions for file paths
