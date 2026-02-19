@@ -8,3 +8,7 @@ type Worktree struct {
 	Path      string
 	CreatedAt time.Time
 }
+
+func (w Worktree) FilterValue() string {
+	return w.Ticket + " " + w.Branch
+}
