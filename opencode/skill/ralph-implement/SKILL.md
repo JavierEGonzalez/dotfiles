@@ -8,12 +8,13 @@ You are an autonomous coding agent working on a software project.
 
 ## Your Task
 
+0. Familiarize yourself with the plan in `./.scratch/ralph/*plan.*`
 1. Read the PRD at `./.scratch/ralph/prd.json` (in the root of the )
 2. Read the progress log at `./.scratch/ralph/progress.txt` (check Codebase Patterns section first)
 3. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from main.
 4. Pick the **highest priority** user story where `passes: false`
   - change the status to `in-progress: true`
-5. Implement that single user story
+5. Implement that single user story nothing else
 6. Run quality checks (e.g., typecheck, lint, test)
 7. If checks pass, commit ALL changes with message: `feat: [Story ID] - [Story Title]`
 8. Update the PRD to set `passes: true` for the completed story and `in-progress: false`
@@ -64,6 +65,8 @@ For any story that changes UI, you MUST verify it works in the browser:
 4. Take a screenshot if helpful for the progress log
 
 A frontend story is NOT complete until browser verification passes.
+
+  With a TUI the requirement is the same
 
 ## Stop Condition
 

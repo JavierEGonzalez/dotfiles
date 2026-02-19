@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/charmbracelet/bubbletea"
@@ -12,6 +11,7 @@ type model struct {
 	worktreesScreen      screens.WorktreesModel
 	createWorktreeScreen screens.CreateWorktreeModel
 	deleteWorktreeScreen screens.DeleteWorktreeModel
+	worktreeScreen       screens.WorktreeModel
 	view                 string
 }
 
@@ -25,6 +25,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateCreateWorktree(msg)
 	case "delete":
 		return m.updateDeleteWorktree(msg)
+	case "worktree":
+		return m.updateWorktree(msg)
 	default:
 		return m.updateWorktrees(msg)
 	}
@@ -37,7 +39,8 @@ func (m model) updateWorktrees(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case screens.WorktreeSelectedMsg:
-		fmt.Printf("Selected worktree: %s\n", msg.Worktree.Path)
+		m.view = "worktree"
+		m.worktreeScreen = screens.NewWorktreeModel(msg.Worktree)
 		return m, nil
 	case screens.CreateWorktreeMsg:
 		m.view = "create"
@@ -85,12 +88,26 @@ func (m model) updateDeleteWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m model) updateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case screens.WorktreeBackMsg:
+		m.view = ""
+		return m, nil
+	default:
+		newScreen, cmd := m.worktreeScreen.Update(msg)
+		m.worktreeScreen = newScreen.(screens.WorktreeModel)
+		return m, cmd
+	}
+}
+
 func (m model) View() string {
 	switch m.view {
 	case "create":
 		return m.createWorktreeScreen.View()
 	case "delete":
 		return m.deleteWorktreeScreen.View()
+	case "worktree":
+		return m.worktreeScreen.View()
 	default:
 		return m.worktreesScreen.View()
 	}
