@@ -9,7 +9,9 @@ import (
 )
 
 type model struct {
-	worktreesScreen screens.WorktreesModel
+	worktreesScreen      screens.WorktreesModel
+	createWorktreeScreen screens.CreateWorktreeModel
+	view                 string
 }
 
 func (m model) Init() tea.Cmd {
@@ -17,6 +19,15 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.view {
+	case "create":
+		return m.updateCreateWorktree(msg)
+	default:
+		return m.updateWorktrees(msg)
+	}
+}
+
+func (m model) updateWorktrees(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
@@ -26,7 +37,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		fmt.Printf("Selected worktree: %s\n", msg.Worktree.Path)
 		return m, nil
 	case screens.CreateWorktreeMsg:
-		fmt.Println("Create worktree requested")
+		m.view = "create"
+		m.createWorktreeScreen = screens.NewCreateWorktreeModel()
 		return m, nil
 	case screens.DeleteWorktreeMsg:
 		fmt.Printf("Delete worktree: %s\n", msg.Worktree.Path)
@@ -38,8 +50,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m model) updateCreateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case screens.CreateWorktreeDoneMsg:
+		m.view = ""
+		wt, _ := m.worktreesScreen.Refresh()
+		m.worktreesScreen = wt
+		return m, nil
+	default:
+		newScreen, cmd := m.createWorktreeScreen.Update(msg)
+		m.createWorktreeScreen = newScreen.(screens.CreateWorktreeModel)
+		return m, cmd
+	}
+}
+
 func (m model) View() string {
-	return m.worktreesScreen.View()
+	switch m.view {
+	case "create":
+		return m.createWorktreeScreen.View()
+	default:
+		return m.worktreesScreen.View()
+	}
 }
 
 func main() {
