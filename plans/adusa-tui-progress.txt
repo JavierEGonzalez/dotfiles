@@ -21,17 +21,59 @@
 
 ---
 
+## Completed: Chunk 2 - Core Types and Config ✅
+
+### What was done:
+1. Created `internal/types/worktree.go` - Worktree struct with Ticket, Branch, Path, CreatedAt
+2. Created `internal/types/ticket.go` - TicketInfo struct with Key, Summary, Description, Status, Assignee, Priority
+3. Created `internal/types/agent.go` - AgentStatus enum (Idle, Running, Done, Error)
+4. Created `internal/config/config.go` with:
+   - Path constants (ScratchDir, WorktreeBase, TicketsDir, JiraEmailPath, JiraTokenPath)
+   - Helper functions: TicketFilePath(), PlanFilePath(), WorktreeInfoPath()
+   - LoadJiraCredentials() - reads ~/.scratch/jira.email and jira.token
+   - EnsureDirs() - creates required directories
+5. Built and verified with `go build -o adusa-tui && go vet ./...`
+
+### Current state:
+- All type definitions and config in place
+- Ready for Chunk 3 (Git Operations)
+
+---
+
+## Completed: Chunk 3 - Git Operations ✅
+
+### What was done:
+1. Created `internal/git/worktree.go` with:
+   - `ListWorktrees()` - scans ~/workspace/prism3/ for directories with .worktree-info
+   - `CreateWorktree(ticket, branchType, description)` - creates git worktree with branch
+   - `DeleteWorktree(path)` - removes git worktree and directory (not branch)
+   - `GetStatus(path)` - returns []FileStatus with M/A/D/? status
+   - `GetDiff(path)` - returns git diff output
+   - `GetDiffStat(path)` - returns git diff --stat
+   - `StageAll(path)` - runs git add -A
+   - `Commit(path, ticket, message)` - commits with "[TICKET]: message" format
+   - `GetCurrentBranch(path)` - gets current branch name
+2. Added `FileStatus` struct with Path, Status, Staged fields
+3. Build and vet pass successfully
+
+### Current state:
+- Git operations module complete
+- Ready for Chunk 4 (Jira Client)
+
+---
+
 ## Learnings for Future Agents
 
-### To continue with Chunk 2:
+### To continue with Chunk 4:
 - Work in the `/Users/javiergonzalez/workspace/dotfiles/adusa-tui/` directory
-- Next step is creating `internal/config/config.go` for paths and credentials
+- Next step is creating `internal/jira/client.go` for Jira API integration
 - Reference the chunks file at `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-chunks.md` for acceptance criteria
 - Reference the main plan at `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-plan.md` for detailed requirements
 
 ### Key file paths:
 - Project root: `/Users/javiergonzalez/workspace/dotfiles/adusa-tui/`
 - Main entry: `main.go`
+- Git module: `internal/git/worktree.go`
 - Chunk definitions: `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-chunks.md`
 - Detailed plan: `/Users/javiergonzalez/workspace/dotfiles/plans/adusa-tui-plan.md`
 
@@ -47,11 +89,12 @@ cd /Users/javiergonzalez/workspace/dotfiles/adusa-tui && go vet ./...
 
 ---
 
-## Next Chunk (Chunk 2): Core Types and Config
-Goal: Define core data types and configuration management
+## Next Chunk (Chunk 4): Jira Client
+Goal: Fetch ticket information from Jira API
 Steps:
-1. Create `internal/config/config.go` - paths, credentials
-2. Create `internal/types/worktree.go` - Worktree struct
-3. Create `internal/types/ticket.go` - TicketInfo struct
-4. Create `internal/types/agent.go` - AgentStatus enum
-5. Create helper functions for file paths
+1. Create `internal/jira/client.go`
+2. Implement: LoadCredentials() - read ~/.scratch/jira.email and jira.token
+3. Implement: FetchTicket(key) - call REST API
+4. Implement: ParseTicketInfo(response) - extract fields
+5. Implement: SaveTicketCache(info) - write to ~/.scratch/tickets/{key}.md
+6. Implement: LoadTicketCache(key) - read from cache

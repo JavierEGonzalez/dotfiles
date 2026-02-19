@@ -1,5 +1,28 @@
 # ADUSA AI Workflow TUI - Detailed Plan
 
+## Initial user prompt mermaid diagram
+flowchart TD
+    A[Call Cli] -->|Without Args| B
+    A -->|With Ticket Arg| C[Start]
+    B[All Worktrees Screen] -->|Choose| B1
+        B1[All Worktrees] --> C
+    B -->|Choose| B2
+        B2[Make New Worktree] --> C
+    C[Individual Worktree Screen] -->|Press Esc| B
+    C -->|Tab One| C1[View Changes]
+    C -->|Tab Two| C2[View Agent Session]
+    C -->|Tab Three| C3[View Ticket Summary]
+    C3[View Ticket Summary] -->|Tab One| C3a
+        C3a[View Ticket File] -->|Action| C3C{Append Info to Ticket File}
+        C3a[View Ticket File] -->|Action| C3D{Refetch Ticket File}
+    C3 -->|Tab Two| D
+        D[Plan File] -->|Opt 1| D1
+        D1{Create Plan File From Ticket File Info} --> D2
+        D -->|Opt 2| D2{View or Edit Plan File} --> D2a
+        D2a[Editor] -->|On Close| D
+        D -->|Opt 3 if file exists| D3{Execute Plan File}
+        D3 -->|Navigate To| C2
+
 ## Overview
 
 A Bubble Tea TUI application that provides a unified interface for:
