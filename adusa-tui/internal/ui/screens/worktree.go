@@ -52,43 +52,69 @@ const (
 	TabCount
 )
 
+// Available AI models for agent selection
+const (
+	ModelClaudeSonnet    = "claude-3-5-sonnet-20241022"
+	ModelClaudeOpus      = "claude-3-opus-20250219"
+	ModelClaude3Haiku    = "claude-3-haiku-20240307"
+	ModelGPT4            = "gpt-4"
+	ModelGPT4Turbo       = "gpt-4-turbo"
+	ModelGPT35Turbo      = "gpt-3.5-turbo"
+	ModelGitHubCopilot   = "github-copilot"
+	ModelLocalOpenCodeAI = "local-opencode"
+)
+
+var AvailableModels = []string{
+	ModelGitHubCopilot,
+	ModelClaudeSonnet,
+	ModelClaudeOpus,
+	ModelClaude3Haiku,
+	ModelGPT4,
+	ModelGPT4Turbo,
+	ModelGPT35Turbo,
+	ModelLocalOpenCodeAI,
+}
+
 type WorktreeModel struct {
-	planContent    string
-	planScroll     int
-	planExists     bool
-	confirmPlan    bool
-	confirmExecute bool
-	worktree       types.Worktree
-	activeTab      int
-	err            error
-	status         []git.FileStatus
-	diff           string
-	showingDiff    bool
-	diffScroll     int
-	commitMode     bool
-	commitMsg      string
-	isLoading      bool
-	loadingMsg     string
-	ticket         *types.TicketInfo
-	ticketScroll   int
-	agentRunning   bool
-	agentDone      bool
-	promptModel    bool
-	promptIter     bool
-	agentModel     string
-	agentIter      string
-	showingHelp    bool
+	planContent      string
+	planScroll       int
+	planExists       bool
+	confirmPlan      bool
+	confirmExecute   bool
+	worktree         types.Worktree
+	activeTab        int
+	err              error
+	status           []git.FileStatus
+	diff             string
+	showingDiff      bool
+	diffScroll       int
+	commitMode       bool
+	commitMsg        string
+	isLoading        bool
+	loadingMsg       string
+	ticket           *types.TicketInfo
+	ticketScroll     int
+	agentRunning     bool
+	agentDone        bool
+	promptModel      bool
+	promptIter       bool
+	agentModel       string
+	agentIter        string
+	showingHelp      bool
+	modelSelectorIdx int
+	selectingModel   bool
 }
 
 func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
 	m := WorktreeModel{
-		showingHelp: false,
-		worktree:   worktree,
-		activeTab:  TabChanges,
-		agentModel: "claude-3-5-sonnet-20241022",
-		agentIter:  "3",
+		showingHelp:      false,
+		worktree:         worktree,
+		activeTab:        TabChanges,
+		agentModel:       ModelClaudeSonnet,
+		agentIter:        "3",
+		modelSelectorIdx: 1, // Claude Sonnet is at index 1
 	}
-	m.loadStatus()
+	m = m.loadStatus()
 	return m
 }
 
@@ -96,67 +122,70 @@ func (m WorktreeModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *WorktreeModel) loadStatus() {
+func (m WorktreeModel) loadStatus() WorktreeModel {
 	m.isLoading = true
 	m.loadingMsg = "Loading git status..."
 	status, err := git.GetStatus(m.worktree.Path)
 	m.isLoading = false
 	if err != nil {
 		m.err = err
-		return
+		return m
 	}
 	m.status = status
+	return m
 }
 
-func (m *WorktreeModel) loadDiff() {
+func (m WorktreeModel) loadDiff() WorktreeModel {
 	m.isLoading = true
 	m.loadingMsg = "Loading diff..."
 	diff, err := git.GetDiff(m.worktree.Path)
 	m.isLoading = false
 	if err != nil {
 		m.err = err
-		return
+		return m
 	}
 	m.diff = diff
 	m.diffScroll = 0
+	return m
 }
 
-func (m *WorktreeModel) loadTicket() {
+func (m WorktreeModel) loadTicket() WorktreeModel {
 	m.isLoading = true
 	m.loadingMsg = "Loading ticket..."
 	ticket, err := jira.LoadTicketCache(m.worktree.Ticket)
 	if err != nil {
 		m.err = err
 		m.isLoading = false
-		return
+		return m
 	}
 	if ticket == nil {
-		m.fetchTicket()
-		return
+		return m.fetchTicket()
 	}
 	m.isLoading = false
 	m.ticket = ticket
 	m.ticketScroll = 0
+	return m
 }
 
-func (m *WorktreeModel) fetchTicket() {
+func (m WorktreeModel) fetchTicket() WorktreeModel {
 	m.isLoading = true
 	m.loadingMsg = "Fetching from Jira..."
 	ticket, err := jira.FetchTicket(m.worktree.Ticket)
 	m.isLoading = false
 	if err != nil {
 		m.err = err
-		return
+		return m
 	}
 	if err := jira.SaveTicketCache(ticket); err != nil {
 		m.err = err
-		return
+		return m
 	}
 	m.ticket = ticket
 	m.ticketScroll = 0
+	return m
 }
 
-func (m *WorktreeModel) editTicket() {
+func (m WorktreeModel) editTicket() WorktreeModel {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vim"
@@ -166,10 +195,10 @@ func (m *WorktreeModel) editTicket() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
-	m.loadTicket()
+	return m.loadTicket()
 }
 
-func (m *WorktreeModel) appendToTicketNotes() {
+func (m WorktreeModel) appendToTicketNotes() WorktreeModel {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vim"
@@ -180,7 +209,7 @@ func (m *WorktreeModel) appendToTicketNotes() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
-	m.loadTicket()
+	return m.loadTicket()
 }
 
 func (m *WorktreeModel) getTicketCachePath() string {
@@ -195,7 +224,7 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.commitMode {
 		return m.updateCommitMode(msg)
 	}
-	if m.promptModel || m.promptIter {
+	if m.promptModel || m.promptIter || m.selectingModel {
 		return m.updateAgentPrompts(msg)
 	}
 
@@ -218,18 +247,18 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "a":
 			if m.activeTab == TabTicket {
-				m.appendToTicketNotes()
+				m = m.appendToTicketNotes()
 				return m, nil
 			}
 			m.activeTab = TabAgent
 			return m, nil
 		case "t":
 			m.activeTab = TabTicket
-			m.loadTicket()
+			m = m.loadTicket()
 			return m, nil
 		case "p":
 			m.activeTab = TabPlan
-			m.loadPlan()
+			m = m.loadPlan()
 			return m, nil
 		case "h", "left":
 			m.activeTab = (m.activeTab - 1 + TabCount) % TabCount
@@ -249,9 +278,9 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return WorktreeBackMsg{} }
 		case "r":
 			if m.activeTab == TabChanges {
-				m.loadStatus()
+				m = m.loadStatus()
 			} else if m.activeTab == TabTicket {
-				m.fetchTicket()
+				m = m.fetchTicket()
 			} else if m.activeTab == TabAgent && !m.agentRunning {
 				m.agentRunning = true
 				m.agentDone = false
@@ -267,8 +296,14 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "m":
 			if m.activeTab == TabAgent && !m.agentRunning {
-				m.promptModel = true
-				m.agentModel = ""
+				m.selectingModel = true
+				// Find the current model's index
+				for i, model := range AvailableModels {
+					if model == m.agentModel {
+						m.modelSelectorIdx = i
+						break
+					}
+				}
 			}
 			return m, nil
 		case "i":
@@ -294,7 +329,7 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					m.err = err
 				} else {
-					m.loadStatus()
+					m = m.loadStatus()
 				}
 			} else if m.activeTab == TabAgent && m.agentRunning {
 				exec.Command("tmux", "kill-session", "-t", m.worktree.Ticket).Run()
@@ -319,9 +354,9 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "e":
 			if m.activeTab == TabTicket {
-				m.editTicket()
+				m = m.editTicket()
 			} else if m.activeTab == TabPlan && m.planExists {
-				m.editPlan()
+				m = m.editPlan()
 			}
 			return m, nil
 		case "j", "down":
@@ -382,7 +417,7 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case planGeneratedMsg:
 		m.isLoading = false
 		m.confirmPlan = false
-		m.loadPlan()
+		m = m.loadPlan()
 		return m, nil
 	}
 
@@ -429,7 +464,7 @@ func (m WorktreeModel) updateCommitMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				m.err = err
 			} else {
-				m.loadStatus()
+				m = m.loadStatus()
 			}
 			m.commitMode = false
 			m.commitMsg = ""
@@ -456,28 +491,35 @@ func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			if m.promptModel {
-				m.promptModel = false
+			if m.selectingModel {
+				m.agentModel = AvailableModels[m.modelSelectorIdx]
+				m.selectingModel = false
 			} else if m.promptIter {
 				m.promptIter = false
 			}
 			return m, nil
 		case tea.KeyEscape:
-			m.promptModel = false
+			m.selectingModel = false
 			m.promptIter = false
 			return m, nil
+		case tea.KeyUp:
+			if m.selectingModel && m.modelSelectorIdx > 0 {
+				m.modelSelectorIdx--
+			}
+			return m, nil
+		case tea.KeyDown:
+			if m.selectingModel && m.modelSelectorIdx < len(AvailableModels)-1 {
+				m.modelSelectorIdx++
+			}
+			return m, nil
 		case tea.KeyBackspace:
-			if m.promptModel && len(m.agentModel) > 0 {
-				m.agentModel = m.agentModel[:len(m.agentModel)-1]
-			} else if m.promptIter && len(m.agentIter) > 0 {
+			if m.promptIter && len(m.agentIter) > 0 {
 				m.agentIter = m.agentIter[:len(m.agentIter)-1]
 			}
 			return m, nil
 		}
 		if len(msg.String()) == 1 {
-			if m.promptModel {
-				m.agentModel += msg.String()
-			} else if m.promptIter {
+			if m.promptIter {
 				m.agentIter += msg.String()
 			}
 		}
@@ -503,8 +545,18 @@ func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
 }
 
 func (m WorktreeModel) renderAgentTab() string {
-	if m.promptModel {
-		return promptStyle.Render(fmt.Sprintf("  Model name: %s", m.agentModel))
+	if m.selectingModel {
+		var lines []string
+		lines = append(lines, promptStyle.Render("  Select Model (↑/↓ to navigate, Enter to select):"))
+		lines = append(lines, "")
+		for i, model := range AvailableModels {
+			if i == m.modelSelectorIdx {
+				lines = append(lines, tabActiveStyle.Render(fmt.Sprintf("  > %s", model)))
+			} else {
+				lines = append(lines, fmt.Sprintf("    %s", model))
+			}
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 	if m.promptIter {
 		return promptStyle.Render(fmt.Sprintf("  Iterations: %s", m.agentIter))
@@ -717,12 +769,12 @@ func (m WorktreeModel) renderTicketTab() string {
 
 type WorktreeBackMsg struct{}
 
-func (m *WorktreeModel) getPlanPath() string {
+func (m WorktreeModel) getPlanPath() string {
 	homeDir, _ := os.UserHomeDir()
 	return fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
 }
 
-func (m *WorktreeModel) loadPlan() {
+func (m WorktreeModel) loadPlan() WorktreeModel {
 	path := m.getPlanPath()
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -733,9 +785,10 @@ func (m *WorktreeModel) loadPlan() {
 		m.planContent = string(content)
 	}
 	m.planScroll = 0
+	return m
 }
 
-func (m *WorktreeModel) editPlan() {
+func (m WorktreeModel) editPlan() WorktreeModel {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vim"
@@ -745,7 +798,7 @@ func (m *WorktreeModel) editPlan() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
-	m.loadPlan()
+	return m.loadPlan()
 }
 
 type planGeneratedMsg struct{}

@@ -99,7 +99,7 @@ func (m CreateWorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
+func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 	switch m.step {
 	case 0:
 		ticket := strings.TrimSpace(m.ticketInput.Value())
@@ -141,7 +141,7 @@ func (m *CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *CreateWorktreeModel) createWorktree() error {
+func (m CreateWorktreeModel) createWorktree() error {
 	_, err := git.CreateWorktree(m.ticket, m.branchType, m.description)
 	return err
 }

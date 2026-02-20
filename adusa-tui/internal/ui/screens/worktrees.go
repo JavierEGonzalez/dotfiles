@@ -136,7 +136,7 @@ func (m WorktreesModel) View() string {
 			prefix = "► "
 			ticketStr = selectedStyle.Render(ticketStr)
 			branchStr = selectedStyle.Render(branchStr)
-			statusStr = selectedStyle.Render(statusStr[lipgloss.Width(statusStr)-len(statusStr):])
+			statusStr = selectedStyle.Render(statusStr)
 		}
 
 		rows = append(rows, fmt.Sprintf("%s%-10s %-30s %s", prefix, ticketStr, branchStr, statusStr))

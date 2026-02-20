@@ -125,6 +125,7 @@ if command -v direnv >/dev/null 2>&1; then
 fi
 
 
+export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
 export NODE_EXTRA_CA_CERTS=~/.scratch/zscaler_root.cer

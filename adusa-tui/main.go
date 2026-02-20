@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/javiergonzalez/adusa-tui/internal/ui/screens"
 )
 
@@ -13,13 +15,21 @@ type model struct {
 	deleteWorktreeScreen screens.DeleteWorktreeModel
 	worktreeScreen       screens.WorktreeModel
 	view                 string
+	width                int
+	height               int
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return tea.ClearScreen
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+
 	switch m.view {
 	case "create":
 		return m.updateCreateWorktree(msg)
@@ -101,22 +111,41 @@ func (m model) updateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	var content string
 	switch m.view {
 	case "create":
-		return m.createWorktreeScreen.View()
+		content = m.createWorktreeScreen.View()
 	case "delete":
-		return m.deleteWorktreeScreen.View()
+		content = m.deleteWorktreeScreen.View()
 	case "worktree":
-		return m.worktreeScreen.View()
+		content = m.worktreeScreen.View()
 	default:
-		return m.worktreesScreen.View()
+		// For the main worktrees view, center it if there's room
+		if m.height > 0 && m.width > 0 {
+			content = centerContent(m.worktreesScreen.View(), m.width, m.height)
+		} else {
+			content = m.worktreesScreen.View()
+		}
+		return content
 	}
+	return content
+}
+
+func centerContent(content string, width, height int) string {
+	// Use lipgloss to center the content
+	style := lipgloss.NewStyle().
+		Width(width).
+		Height(height).
+		AlignHorizontal(lipgloss.Center).
+		AlignVertical(lipgloss.Center)
+	return style.Render(content)
 }
 
 func main() {
 	if _, err := tea.NewProgram(model{
 		worktreesScreen: screens.NewWorktreesModel(),
 	}).Run(); err != nil {
+		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}
 }

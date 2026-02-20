@@ -20,29 +20,154 @@ type FileStatus struct {
 }
 
 func ListWorktrees() ([]types.Worktree, error) {
+	// First, get actual git worktrees from git
+	gitWorktrees, err := listGitWorktrees()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert git worktrees to our format, creating .worktree-info if needed
+	var worktrees []types.Worktree
+	for _, gw := range gitWorktrees {
+		// Get the base directory name (e.g., "CXPVSP-8440" from the path)
+		dirName := filepath.Base(gw.Path)
+
+		// Check if .worktree-info exists
+		infoPath := config.WorktreeInfoPath(gw.Path)
+		wt := types.Worktree{
+			Path:   gw.Path,
+			Branch: gw.Branch,
+		}
+
+		// Try to load existing info file
+		if info, err := os.ReadFile(infoPath); err == nil {
+			parsed := parseWorktreeInfo(string(info), dirName)
+			wt = parsed
+			wt.Path = gw.Path     // Ensure path is correct
+			wt.Branch = gw.Branch // Ensure branch is current
+		} else {
+			// Create info file for worktrees that don't have one
+			// Extract ticket from directory name if it looks like a ticket
+			ticket := ""
+			if strings.HasPrefix(dirName, "CXPVSP-") {
+				ticket = dirName
+			}
+
+			wt.Ticket = ticket
+			wt.CreatedAt = gw.CreatedAt
+
+			// Write the info file for future use
+			infoContent := fmt.Sprintf("TICKET=%s\nBRANCH=%s\nCREATED=%s\n", ticket, gw.Branch, gw.CreatedAt.Format(time.RFC3339))
+			if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
+				// Log but don't fail - the worktree can still be used
+				fmt.Fprintf(os.Stderr, "Warning: failed to write worktree info for %s: %v\n", dirName, err)
+			}
+		}
+
+		worktrees = append(worktrees, wt)
+	}
+
+	return worktrees, nil
+}
+
+// GitWorktree represents a worktree from git worktree list
+type GitWorktree struct {
+	Path      string
+	Branch    string
+	CreatedAt time.Time
+}
+
+// listGitWorktrees uses git worktree list to get actual worktrees
+func listGitWorktrees() ([]GitWorktree, error) {
+	cmd := exec.Command("git", "worktree", "list", "--porcelain")
+	cmd.Dir = config.WorktreeBase
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// If git command fails, fall back to directory listing
+		return listWorktreesByDirectory()
+	}
+
+	var worktrees []GitWorktree
+	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "worktree") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		path := parts[1]
+		branch := "unknown"
+		createdAt := time.Now()
+
+		// Read the next line to get branch info
+		if scanner.Scan() {
+			nextLine := scanner.Text()
+			if strings.HasPrefix(nextLine, "branch") {
+				parts := strings.Split(nextLine, " ")
+				if len(parts) >= 2 {
+					// Extract branch name from reference path (e.g., "refs/heads/feature/123")
+					branchRef := parts[1]
+					branch = strings.TrimPrefix(branchRef, "refs/heads/")
+				}
+			}
+		}
+
+		worktrees = append(worktrees, GitWorktree{
+			Path:      path,
+			Branch:    branch,
+			CreatedAt: createdAt,
+		})
+	}
+
+	return worktrees, nil
+}
+
+// listWorktreesByDirectory falls back to directory listing if git command fails
+func listWorktreesByDirectory() ([]GitWorktree, error) {
 	entries, err := os.ReadDir(config.WorktreeBase)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read worktree base: %w", err)
 	}
 
-	var worktrees []types.Worktree
+	var worktrees []GitWorktree
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 
-		infoPath := config.WorktreeInfoPath(filepath.Join(config.WorktreeBase, entry.Name()))
-		info, err := os.ReadFile(infoPath)
+		path := filepath.Join(config.WorktreeBase, entry.Name())
+		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
 
-		wt := parseWorktreeInfo(string(info), entry.Name())
-		wt.Path = filepath.Join(config.WorktreeBase, entry.Name())
-		worktrees = append(worktrees, wt)
+		// Get branch by reading git symbolic-ref or git rev-parse
+		branch := getBranchFromPath(path)
+
+		worktrees = append(worktrees, GitWorktree{
+			Path:      path,
+			Branch:    branch,
+			CreatedAt: info.ModTime(),
+		})
 	}
 
 	return worktrees, nil
+}
+
+// getBranchFromPath tries to determine the current branch in a directory
+func getBranchFromPath(path string) string {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = path
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func parseWorktreeInfo(content, dirName string) types.Worktree {
