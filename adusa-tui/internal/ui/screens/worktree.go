@@ -53,6 +53,10 @@ const (
 )
 
 type WorktreeModel struct {
+	planContent  string
+	planScroll   int
+	planExists   bool
+	confirmPlan  bool
 	worktree     types.Worktree
 	activeTab    int
 	err          error
@@ -200,6 +204,7 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "p":
 			m.activeTab = TabPlan
+			m.loadPlan()
 			return m, nil
 		case "h", "left":
 			m.activeTab = (m.activeTab - 1 + TabCount) % TabCount
@@ -208,6 +213,10 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = (m.activeTab + 1) % TabCount
 			return m, nil
 		case "q", "esc":
+			if m.activeTab == TabPlan && m.confirmPlan {
+				m.confirmPlan = false
+				return m, nil
+			}
 			return m, func() tea.Msg { return WorktreeBackMsg{} }
 		case "r":
 			if m.activeTab == TabChanges {
@@ -236,6 +245,10 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "c":
+			if m.activeTab == TabPlan {
+				m.confirmPlan = true
+				return m, nil
+			}
 			if m.activeTab == TabChanges && len(m.status) > 0 {
 				m.commitMode = true
 				m.commitMsg = fmt.Sprintf("[%s]: ", m.worktree.Ticket)
@@ -244,16 +257,35 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "e":
 			if m.activeTab == TabTicket {
 				m.editTicket()
+			} else if m.activeTab == TabPlan && m.planExists {
+				m.editPlan()
 			}
 			return m, nil
 		case "j", "down":
 			if m.activeTab == TabTicket {
 				m.ticketScroll++
+			} else if m.activeTab == TabPlan {
+				m.planScroll++
 			}
 			return m, nil
 		case "k", "up":
 			if m.activeTab == TabTicket && m.ticketScroll > 0 {
 				m.ticketScroll--
+			} else if m.activeTab == TabPlan && m.planScroll > 0 {
+				m.planScroll--
+			}
+			return m, nil
+		case "y":
+			if m.activeTab == TabPlan && m.confirmPlan {
+				m.isLoading = true
+				m.loadingMsg = "Generating..."
+				return m, m.generatePlanCmd()
+			}
+			return m, nil
+		case "n":
+			if m.activeTab == TabPlan && m.confirmPlan {
+				m.confirmPlan = false
+				return m, nil
 			}
 			return m, nil
 		}
@@ -390,7 +422,7 @@ func (m WorktreeModel) renderTabContent() string {
 	case TabTicket:
 		return m.renderTicketTab()
 	case TabPlan:
-		return infoTextStyle.Render("  Plan tab - Use 'c' to generate plan, 'e' to edit, 'x' to execute")
+		return m.renderPlanTab()
 	}
 	return ""
 }
@@ -506,3 +538,83 @@ func (m WorktreeModel) renderTicketTab() string {
 }
 
 type WorktreeBackMsg struct{}
+
+func (m *WorktreeModel) getPlanPath() string {
+	homeDir, _ := os.UserHomeDir()
+	return fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+}
+
+func (m *WorktreeModel) loadPlan() {
+	path := m.getPlanPath()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		m.planExists = false
+		m.planContent = "No plan file found"
+	} else {
+		m.planExists = true
+		m.planContent = string(content)
+	}
+	m.planScroll = 0
+}
+
+func (m *WorktreeModel) editPlan() {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+	cmd := exec.Command(editor, m.getPlanPath())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+	m.loadPlan()
+}
+
+type planGeneratedMsg struct{}
+
+func (m *WorktreeModel) generatePlanCmd() tea.Cmd {
+	return func() tea.Msg {
+		path := m.getPlanPath()
+		prompt := fmt.Sprintf("Read ~/.scratch/tickets/%s.md and write a step-by-step implementation plan to %s. DO NOT use the edit or write tools to write anything besides the plan file. DO NOT do any other tasks. Provide extreme detail. Only output the markdown for the plan.", m.worktree.Ticket, path)
+		cmd := exec.Command("opencode", "run", prompt)
+		cmd.Run()
+		return planGeneratedMsg{}
+	}
+}
+
+func (m WorktreeModel) renderPlanTab() string {
+	if m.confirmPlan {
+		return promptStyle.Render("  Generate new plan with AI? (y/n)")
+	}
+
+	var lines []string
+
+	if !m.planExists {
+		lines = append(lines, infoTextStyle.Render("  No plan file found"))
+	} else {
+		lines = append(lines, ticketLabelStyle.Render("  Implementation Plan:"))
+		lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
+
+		planLines := strings.Split(m.planContent, "\n")
+		start := m.planScroll
+		end := start + 10
+		if end > len(planLines) {
+			end = len(planLines)
+		}
+
+		if start > 0 {
+			lines = append(lines, infoTextStyle.Render("  ... (scroll up with k)"))
+		}
+		for i := start; i < end; i++ {
+			lines = append(lines, ticketValueStyle.Render("  "+planLines[i]))
+		}
+		if end < len(planLines) {
+			lines = append(lines, infoTextStyle.Render("  ... (scroll down with j)"))
+		}
+		lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
+	}
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan"))
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
