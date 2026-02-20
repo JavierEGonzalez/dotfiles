@@ -77,10 +77,12 @@ type WorktreeModel struct {
 	promptIter     bool
 	agentModel     string
 	agentIter      string
+	showingHelp    bool
 }
 
 func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
 	m := WorktreeModel{
+		showingHelp: false,
 		worktree:   worktree,
 		activeTab:  TabChanges,
 		agentModel: "claude-3-5-sonnet-20241022",
@@ -199,6 +201,17 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() == "?" {
+			m.showingHelp = !m.showingHelp
+			return m, nil
+		}
+		if m.showingHelp && (msg.String() == "q" || msg.String() == "esc") {
+			m.showingHelp = false
+			return m, nil
+		}
+		if m.showingHelp {
+			return m, nil
+		}
 		switch msg.String() {
 		case "g":
 			m.activeTab = TabChanges
@@ -518,6 +531,9 @@ func (m WorktreeModel) renderAgentTab() string {
 }
 
 func (m WorktreeModel) View() string {
+	if m.showingHelp {
+		return m.renderHelp()
+	}
 	if m.showingDiff {
 		return m.renderDiffView()
 	}
@@ -809,5 +825,46 @@ func (m WorktreeModel) renderPlanTab() string {
 	lines = append(lines, "")
 	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan  [x] Execute Plan"))
 
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+func (m WorktreeModel) renderHelp() string {
+	var lines []string
+	lines = append(lines, headerStyle.Render("Keyboard Shortcuts - Worktree Details"))
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  Global:"))
+	lines = append(lines, "  ?:        Toggle help")
+	lines = append(lines, "  q/Esc:    Go back / cancel")
+	lines = append(lines, "  h/l:      Previous / next tab")
+	lines = append(lines, "  g/a/t/p:  Jump to tab (Changes/Agent/Ticket/Plan)")
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  Changes Tab:"))
+	lines = append(lines, "  v:        View diff")
+	lines = append(lines, "  s:        Stage all changes")
+	lines = append(lines, "  c:        Commit staged changes")
+	lines = append(lines, "  r:        Refresh status")
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  Agent Tab:"))
+	lines = append(lines, "  r:        Run Ralph")
+	lines = append(lines, "  o:        Run OpenCode")
+	lines = append(lines, "  s:        Stop agent")
+	lines = append(lines, "  m:        Change model")
+	lines = append(lines, "  i:        Change iterations")
+	lines = append(lines, "  v:        View changes (when done)")
+	lines = append(lines, "  c:        Commit changes (when done)")
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  Ticket Tab:"))
+	lines = append(lines, "  r:        Refetch ticket")
+	lines = append(lines, "  a:        Append notes")
+	lines = append(lines, "  e:        Edit raw file")
+	lines = append(lines, "  j/k:      Scroll")
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  Plan Tab:"))
+	lines = append(lines, "  c:        Generate plan")
+	lines = append(lines, "  e:        Edit plan")
+	lines = append(lines, "  x:        Execute plan")
+	lines = append(lines, "  j/k:      Scroll")
+	lines = append(lines, "")
+	lines = append(lines, "Press ? or Esc to close help")
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

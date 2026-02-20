@@ -21,6 +21,8 @@ var (
 )
 
 type WorktreesModel struct {
+	showingHelp bool
+
 	list        list.Model
 	worktrees   []types.Worktree
 	dirtyStatus map[string]bool
@@ -63,6 +65,14 @@ func (m WorktreesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
+			if m.showingHelp {
+				m.showingHelp = false
+				return m, nil
+			}
+			if m.showingHelp {
+				m.showingHelp = false
+				return m, nil
+			}
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if len(m.worktrees) > 0 {
@@ -71,6 +81,9 @@ func (m WorktreesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		default:
 			switch msg.String() {
+			case "?":
+				m.showingHelp = !m.showingHelp
+				return m, nil
 			case "q":
 				return m, tea.Quit
 			case "n":
@@ -90,6 +103,9 @@ func (m WorktreesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m WorktreesModel) View() string {
+	if m.showingHelp {
+		return m.renderHelp()
+	}
 	if len(m.worktrees) == 0 {
 		return titleStyle.Render("No worktrees found. Press 'n' to create one.")
 	}
@@ -171,4 +187,20 @@ type CreateWorktreeMsg struct{}
 
 type DeleteWorktreeMsg struct {
 	Worktree types.Worktree
+}
+
+func (m WorktreesModel) renderHelp() string {
+	var lines []string
+	lines = append(lines, titleStyle.Render("Keyboard Shortcuts - All Worktrees"))
+	lines = append(lines, "")
+	lines = append(lines, "  ↑/k:    Move up")
+	lines = append(lines, "  ↓/j:    Move down")
+	lines = append(lines, "  Enter:  Select worktree")
+	lines = append(lines, "  n:      Create new worktree")
+	lines = append(lines, "  d:      Delete selected worktree")
+	lines = append(lines, "  ?:      Toggle help")
+	lines = append(lines, "  q/Esc:  Quit")
+	lines = append(lines, "")
+	lines = append(lines, "Press ? or Esc to return")
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
