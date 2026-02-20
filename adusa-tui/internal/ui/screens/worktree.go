@@ -71,12 +71,20 @@ type WorktreeModel struct {
 	loadingMsg     string
 	ticket         *types.TicketInfo
 	ticketScroll   int
+	agentRunning   bool
+	agentDone      bool
+	promptModel    bool
+	promptIter     bool
+	agentModel     string
+	agentIter      string
 }
 
 func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
 	m := WorktreeModel{
-		worktree:  worktree,
-		activeTab: TabChanges,
+		worktree:   worktree,
+		activeTab:  TabChanges,
+		agentModel: "claude-3-5-sonnet-20241022",
+		agentIter:  "3",
 	}
 	m.loadStatus()
 	return m
@@ -185,6 +193,9 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.commitMode {
 		return m.updateCommitMode(msg)
 	}
+	if m.promptModel || m.promptIter {
+		return m.updateAgentPrompts(msg)
+	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -228,12 +239,37 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.loadStatus()
 			} else if m.activeTab == TabTicket {
 				m.fetchTicket()
+			} else if m.activeTab == TabAgent && !m.agentRunning {
+				m.agentRunning = true
+				m.agentDone = false
+				return m, m.runAgentCmd("ralph")
+			}
+			return m, nil
+		case "o":
+			if m.activeTab == TabAgent && !m.agentRunning {
+				m.agentRunning = true
+				m.agentDone = false
+				return m, m.runAgentCmd("opencode")
+			}
+			return m, nil
+		case "m":
+			if m.activeTab == TabAgent && !m.agentRunning {
+				m.promptModel = true
+				m.agentModel = ""
+			}
+			return m, nil
+		case "i":
+			if m.activeTab == TabAgent && !m.agentRunning {
+				m.promptIter = true
+				m.agentIter = ""
 			}
 			return m, nil
 		case "v":
 			if m.activeTab == TabChanges {
 				m.loadDiff()
 				m.showingDiff = true
+			} else if m.activeTab == TabAgent && m.agentDone {
+				m.activeTab = TabChanges
 			}
 			return m, nil
 		case "s":
@@ -247,6 +283,10 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.loadStatus()
 				}
+			} else if m.activeTab == TabAgent && m.agentRunning {
+				exec.Command("tmux", "kill-session", "-t", m.worktree.Ticket).Run()
+				m.agentRunning = false
+				m.agentDone = true
 			}
 			return m, nil
 		case "c":
@@ -255,6 +295,11 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if m.activeTab == TabChanges && len(m.status) > 0 {
+				m.commitMode = true
+				m.commitMsg = fmt.Sprintf("[%s]: ", m.worktree.Ticket)
+			}
+			if m.activeTab == TabAgent && m.agentDone {
+				m.activeTab = TabChanges
 				m.commitMode = true
 				m.commitMsg = fmt.Sprintf("[%s]: ", m.worktree.Ticket)
 			}
@@ -393,6 +438,85 @@ func (m WorktreeModel) updateCommitMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			if m.promptModel {
+				m.promptModel = false
+			} else if m.promptIter {
+				m.promptIter = false
+			}
+			return m, nil
+		case tea.KeyEscape:
+			m.promptModel = false
+			m.promptIter = false
+			return m, nil
+		case tea.KeyBackspace:
+			if m.promptModel && len(m.agentModel) > 0 {
+				m.agentModel = m.agentModel[:len(m.agentModel)-1]
+			} else if m.promptIter && len(m.agentIter) > 0 {
+				m.agentIter = m.agentIter[:len(m.agentIter)-1]
+			}
+			return m, nil
+		}
+		if len(msg.String()) == 1 {
+			if m.promptModel {
+				m.agentModel += msg.String()
+			} else if m.promptIter {
+				m.agentIter += msg.String()
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
+	return func() tea.Msg {
+		sessionName := m.worktree.Ticket
+		exec.Command("tmux", "new-session", "-d", "-s", sessionName, "-c", m.worktree.Path).Run()
+
+		var cmdStr string
+		if agentType == "opencode" {
+			cmdStr = fmt.Sprintf("opencode run --model %s 'use ralph-implementer skill'\n", m.agentModel)
+		} else {
+			cmdStr = fmt.Sprintf("ralph --model %s --iterations %s\n", m.agentModel, m.agentIter)
+		}
+
+		exec.Command("tmux", "send-keys", "-t", sessionName, cmdStr).Run()
+		return nil
+	}
+}
+
+func (m WorktreeModel) renderAgentTab() string {
+	if m.promptModel {
+		return promptStyle.Render(fmt.Sprintf("  Model name: %s", m.agentModel))
+	}
+	if m.promptIter {
+		return promptStyle.Render(fmt.Sprintf("  Iterations: %s", m.agentIter))
+	}
+
+	var lines []string
+	if m.agentRunning {
+		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Running in tmux session: %s", m.worktree.Ticket)))
+		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  tmux attach -t %s", m.worktree.Ticket)))
+		lines = append(lines, "")
+		lines = append(lines, helpStyle.Render("  [s] Stop/kill tmux session"))
+	} else if m.agentDone {
+		lines = append(lines, infoTextStyle.Render("  Agent finished or stopped."))
+		lines = append(lines, "")
+		lines = append(lines, helpStyle.Render("  [v] View Changes  [c] Commit Changes"))
+	} else {
+		lines = append(lines, infoTextStyle.Render("  Agent Ready"))
+		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Current Model: %s", m.agentModel)))
+		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Iterations: %s", m.agentIter)))
+		lines = append(lines, "")
+		lines = append(lines, helpStyle.Render("  [o] Run OpenCode  [r] Run Ralph  [m] Set Model  [i] Set Iterations"))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
 func (m WorktreeModel) View() string {
 	if m.showingDiff {
 		return m.renderDiffView()
@@ -456,7 +580,7 @@ func (m WorktreeModel) renderTabContent() string {
 	case TabChanges:
 		return m.renderChangesTab()
 	case TabAgent:
-		return infoTextStyle.Render("  Agent tab - Use 'o' to run OpenCode, 'r' to run Ralph")
+		return m.renderAgentTab()
 	case TabTicket:
 		return m.renderTicketTab()
 	case TabPlan:
