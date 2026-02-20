@@ -2,11 +2,14 @@ package screens
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/javiergonzalez/adusa-tui/internal/git"
+	"github.com/javiergonzalez/adusa-tui/internal/jira"
 	"github.com/javiergonzalez/adusa-tui/internal/types"
 )
 
@@ -35,6 +38,10 @@ var (
 			Foreground(lipgloss.Color("#cdd6f4"))
 	promptStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#89b4fa"))
+	ticketLabelStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#89b4fa"))
+	ticketValueStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#cdd6f4"))
 )
 
 const (
@@ -46,17 +53,19 @@ const (
 )
 
 type WorktreeModel struct {
-	worktree    types.Worktree
-	activeTab   int
-	err         error
-	status      []git.FileStatus
-	diff        string
-	showingDiff bool
-	diffScroll  int
-	commitMode  bool
-	commitMsg   string
-	isLoading   bool
-	loadingMsg  string
+	worktree     types.Worktree
+	activeTab    int
+	err          error
+	status       []git.FileStatus
+	diff         string
+	showingDiff  bool
+	diffScroll   int
+	commitMode   bool
+	commitMsg    string
+	isLoading    bool
+	loadingMsg   string
+	ticket       *types.TicketInfo
+	ticketScroll int
 }
 
 func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
@@ -97,6 +106,73 @@ func (m *WorktreeModel) loadDiff() {
 	m.diffScroll = 0
 }
 
+func (m *WorktreeModel) loadTicket() {
+	m.isLoading = true
+	m.loadingMsg = "Loading ticket..."
+	ticket, err := jira.LoadTicketCache(m.worktree.Ticket)
+	if err != nil {
+		m.err = err
+		m.isLoading = false
+		return
+	}
+	if ticket == nil {
+		m.fetchTicket()
+		return
+	}
+	m.isLoading = false
+	m.ticket = ticket
+	m.ticketScroll = 0
+}
+
+func (m *WorktreeModel) fetchTicket() {
+	m.isLoading = true
+	m.loadingMsg = "Fetching from Jira..."
+	ticket, err := jira.FetchTicket(m.worktree.Ticket)
+	m.isLoading = false
+	if err != nil {
+		m.err = err
+		return
+	}
+	if err := jira.SaveTicketCache(ticket); err != nil {
+		m.err = err
+		return
+	}
+	m.ticket = ticket
+	m.ticketScroll = 0
+}
+
+func (m *WorktreeModel) editTicket() {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+	cmd := exec.Command(editor, m.getTicketCachePath())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+	m.loadTicket()
+}
+
+func (m *WorktreeModel) appendToTicketNotes() {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+	cachePath := m.getTicketCachePath()
+	cmd := exec.Command(editor, cachePath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+	m.loadTicket()
+}
+
+func (m *WorktreeModel) getTicketCachePath() string {
+	homeDir, _ := os.UserHomeDir()
+	return fmt.Sprintf("%s/.scratch/tickets/%s.md", homeDir, m.worktree.Ticket)
+}
+
 func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.showingDiff {
 		return m.updateDiffView(msg)
@@ -112,10 +188,15 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = TabChanges
 			return m, nil
 		case "a":
+			if m.activeTab == TabTicket {
+				m.appendToTicketNotes()
+				return m, nil
+			}
 			m.activeTab = TabAgent
 			return m, nil
 		case "t":
 			m.activeTab = TabTicket
+			m.loadTicket()
 			return m, nil
 		case "p":
 			m.activeTab = TabPlan
@@ -131,6 +212,8 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			if m.activeTab == TabChanges {
 				m.loadStatus()
+			} else if m.activeTab == TabTicket {
+				m.fetchTicket()
 			}
 			return m, nil
 		case "v":
@@ -156,6 +239,21 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeTab == TabChanges && len(m.status) > 0 {
 				m.commitMode = true
 				m.commitMsg = fmt.Sprintf("[%s]: ", m.worktree.Ticket)
+			}
+			return m, nil
+		case "e":
+			if m.activeTab == TabTicket {
+				m.editTicket()
+			}
+			return m, nil
+		case "j", "down":
+			if m.activeTab == TabTicket {
+				m.ticketScroll++
+			}
+			return m, nil
+		case "k", "up":
+			if m.activeTab == TabTicket && m.ticketScroll > 0 {
+				m.ticketScroll--
 			}
 			return m, nil
 		}
@@ -290,7 +388,7 @@ func (m WorktreeModel) renderTabContent() string {
 	case TabAgent:
 		return infoTextStyle.Render("  Agent tab - Use 'o' to run OpenCode, 'r' to run Ralph")
 	case TabTicket:
-		return infoTextStyle.Render("  Ticket tab - Use 'r' to refresh from Jira, 'e' to edit notes")
+		return m.renderTicketTab()
 	case TabPlan:
 		return infoTextStyle.Render("  Plan tab - Use 'c' to generate plan, 'e' to edit, 'x' to execute")
 	}
@@ -360,6 +458,51 @@ func (m WorktreeModel) renderDiffView() string {
 	rows = append(rows, helpStyle.Render("  [j/k] scroll  [esc/q] back"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func (m WorktreeModel) renderTicketTab() string {
+	if m.ticket == nil {
+		if m.err != nil {
+			return infoTextStyle.Render("  Error loading ticket: " + m.err.Error())
+		}
+		return infoTextStyle.Render("  No ticket information available. Press 'r' to fetch.")
+	}
+
+	var lines []string
+
+	lines = append(lines, ticketLabelStyle.Render("  Summary: ")+ticketValueStyle.Render(m.ticket.Summary))
+	lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
+	lines = append(lines, fmt.Sprintf("  %s %s  │  %s %s  │  %s %s",
+		ticketLabelStyle.Render("Status:"), ticketValueStyle.Render(m.ticket.Status),
+		ticketLabelStyle.Render("Assignee:"), ticketValueStyle.Render(m.ticket.Assignee),
+		ticketLabelStyle.Render("Priority:"), ticketValueStyle.Render(m.ticket.Priority),
+	))
+	lines = append(lines, "")
+	lines = append(lines, ticketLabelStyle.Render("  Description:"))
+	lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
+
+	descLines := strings.Split(m.ticket.Description, "\n")
+	start := m.ticketScroll
+	end := start + 10
+	if end > len(descLines) {
+		end = len(descLines)
+	}
+
+	if start > 0 {
+		lines = append(lines, infoTextStyle.Render("  ... (scroll up with k)"))
+	}
+	for i := start; i < end; i++ {
+		lines = append(lines, ticketValueStyle.Render("  "+descLines[i]))
+	}
+	if end < len(descLines) {
+		lines = append(lines, infoTextStyle.Render("  ... (scroll down with j)"))
+	}
+
+	lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("  [r] Refetch from Jira  [a] Append Notes  [e] Edit File"))
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 type WorktreeBackMsg struct{}
