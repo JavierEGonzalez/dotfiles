@@ -53,23 +53,24 @@ const (
 )
 
 type WorktreeModel struct {
-	planContent  string
-	planScroll   int
-	planExists   bool
-	confirmPlan  bool
-	worktree     types.Worktree
-	activeTab    int
-	err          error
-	status       []git.FileStatus
-	diff         string
-	showingDiff  bool
-	diffScroll   int
-	commitMode   bool
-	commitMsg    string
-	isLoading    bool
-	loadingMsg   string
-	ticket       *types.TicketInfo
-	ticketScroll int
+	planContent    string
+	planScroll     int
+	planExists     bool
+	confirmPlan    bool
+	confirmExecute bool
+	worktree       types.Worktree
+	activeTab      int
+	err            error
+	status         []git.FileStatus
+	diff           string
+	showingDiff    bool
+	diffScroll     int
+	commitMode     bool
+	commitMsg      string
+	isLoading      bool
+	loadingMsg     string
+	ticket         *types.TicketInfo
+	ticketScroll   int
 }
 
 func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
@@ -217,6 +218,10 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmPlan = false
 				return m, nil
 			}
+			if m.activeTab == TabPlan && m.confirmExecute {
+				m.confirmExecute = false
+				return m, nil
+			}
 			return m, func() tea.Msg { return WorktreeBackMsg{} }
 		case "r":
 			if m.activeTab == TabChanges {
@@ -275,11 +280,23 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.planScroll--
 			}
 			return m, nil
+		case "x":
+			if m.activeTab == TabPlan && m.planExists {
+				m.confirmExecute = true
+				return m, nil
+			}
+			return m, nil
 		case "y":
 			if m.activeTab == TabPlan && m.confirmPlan {
 				m.isLoading = true
 				m.loadingMsg = "Generating..."
 				return m, m.generatePlanCmd()
+			}
+			if m.activeTab == TabPlan && m.confirmExecute {
+				m.confirmExecute = false
+				m.isLoading = true
+				m.loadingMsg = "Starting OpenCode in tmux..."
+				return m, m.executePlanInTmuxCmd()
 			}
 			return m, nil
 		case "n":
@@ -287,9 +304,30 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmPlan = false
 				return m, nil
 			}
+			if m.activeTab == TabPlan && m.confirmExecute {
+				m.confirmExecute = false
+				return m, nil
+			}
 			return m, nil
 		}
 	}
+
+	switch msg := msg.(type) {
+	case planExecutionStartedMsg:
+		m.isLoading = false
+		m.activeTab = TabAgent
+		return m, nil
+	case planExecutionErrorMsg:
+		m.isLoading = false
+		m.err = msg.err
+		return m, nil
+	case planGeneratedMsg:
+		m.isLoading = false
+		m.confirmPlan = false
+		m.loadPlan()
+		return m, nil
+	}
+
 	return m, nil
 }
 
@@ -582,9 +620,40 @@ func (m *WorktreeModel) generatePlanCmd() tea.Cmd {
 	}
 }
 
+type planExecutionStartedMsg struct{}
+type planExecutionErrorMsg struct{ err error }
+
+func (m *WorktreeModel) executePlanInTmuxCmd() tea.Cmd {
+	return func() tea.Msg {
+		sessionName := m.worktree.Ticket
+
+		// Check if tmux session already exists
+		checkCmd := exec.Command("tmux", "has-session", "-t", sessionName)
+		if err := checkCmd.Run(); err != nil {
+			// Session doesn't exist, create it in detached mode
+			createCmd := exec.Command("tmux", "new-session", "-d", "-s", sessionName, "-c", m.worktree.Path)
+			if err := createCmd.Run(); err != nil {
+				return planExecutionErrorMsg{err}
+			}
+		}
+
+		// Send command to tmux session
+		cmdStr := "opencode run 'use ralph-implementer skill'\n"
+		sendCmd := exec.Command("tmux", "send-keys", "-t", sessionName, cmdStr)
+		if err := sendCmd.Run(); err != nil {
+			return planExecutionErrorMsg{err}
+		}
+
+		return planExecutionStartedMsg{}
+	}
+}
+
 func (m WorktreeModel) renderPlanTab() string {
 	if m.confirmPlan {
 		return promptStyle.Render("  Generate new plan with AI? (y/n)")
+	}
+	if m.confirmExecute {
+		return promptStyle.Render("  Execute plan with OpenCode in tmux? (y/n)")
 	}
 
 	var lines []string
@@ -614,7 +683,7 @@ func (m WorktreeModel) renderPlanTab() string {
 		lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
 	}
 	lines = append(lines, "")
-	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan"))
+	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan  [x] Execute Plan"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
