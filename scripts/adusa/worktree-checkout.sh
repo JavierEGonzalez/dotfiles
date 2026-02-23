@@ -2,7 +2,6 @@
 set -euo pipefail
 
 DEFAULT_BASE="~/workspace/prism3"
-SECRETS_SOURCE="$HOME/.scratch/.env.secrets"
 
 get_ticket() {
   if [[ -n "${1:-}" ]]; then
@@ -168,11 +167,6 @@ main() {
     exit 1
   fi
 
-  local secrets_dest="$worktree_dir/apps/prism/.env.secrets"
-  mkdir -p "$(dirname "$secrets_dest")"
-  cp "$SECRETS_SOURCE" "$secrets_dest"
-  echo "Copied secrets to $secrets_dest"
-
   local env_src="$base_dir/apps/prism/.env"
   local env_dest="$worktree_dir/apps/prism/.env"
   if [[ -f "$env_src" ]]; then
@@ -180,6 +174,15 @@ main() {
     echo "Copied .env to $env_dest"
   else
     echo "Warning: .env not found at $env_src"
+  fi
+
+  local secrets_src="$base_dir/apps/prism/.env.secrets"
+  local secrets_dest="$worktree_dir/apps/prism/.env.secrets"
+  if [[ -f "$secrets_src" ]]; then
+    cp "$secrets_src" "$secrets_dest"
+    echo "Copied .env.secrets to $secrets_dest"
+  else
+    echo "Warning: .env.secrets not found at $secrets_src"
   fi
 
   cat > "$worktree_dir/mise.toml" << EOF
