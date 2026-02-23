@@ -12,9 +12,10 @@
   excludesFile = ~/.scratch/.gitignore
   editor = nvim
 [diff]
-  tool = nvimdiff
-[difftool]
-  prompt = true
+    tool = diffview
+[difftool "diffview"]
+    # 'f' is the path to the file Git passes to the tool
+    cmd = nvim -c "DiffviewOpen"
 [merge]
   tool = nvimdiff
   conflictstyle = diff3

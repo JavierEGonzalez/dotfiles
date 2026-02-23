@@ -111,6 +111,7 @@ alias l='ls -CF'
 set -o vi
 
 export PATH="$HOME/.jenv/bin:$PATH"
+export PATH="$HOME/bin:$PATH"
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 
 #export NVM_DIR="$HOME/.nvm"

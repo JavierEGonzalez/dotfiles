@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -13,7 +15,51 @@ var (
 	TicketsDir    = filepath.Join(ScratchDir, "tickets")
 	JiraEmailPath = filepath.Join(ScratchDir, "jira.email")
 	JiraTokenPath = filepath.Join(ScratchDir, "jira.token")
+	ConfigDir     = filepath.Join(HomeDir, ".config", "adusa-tui")
+	ConfigPath    = filepath.Join(ConfigDir, "config.toml")
 )
+
+type Config struct {
+	DiffViewer string `toml:"diff-viewer"`
+}
+
+var AppConfig = loadConfig()
+
+func loadConfig() Config {
+	defaultConfig := Config{
+		DiffViewer: "nvim -c DiffviewOpen",
+	}
+
+	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(ConfigDir, 0755); err != nil {
+			return defaultConfig
+		}
+		if err := saveConfig(ConfigPath, defaultConfig); err != nil {
+			return defaultConfig
+		}
+		return defaultConfig
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(ConfigPath, &cfg); err != nil {
+		return defaultConfig
+	}
+
+	if cfg.DiffViewer == "" {
+		cfg.DiffViewer = defaultConfig.DiffViewer
+	}
+
+	return cfg
+}
+
+func saveConfig(path string, cfg Config) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return toml.NewEncoder(f).Encode(cfg)
+}
 
 func TicketFilePath(ticket string) string {
 	return filepath.Join(TicketsDir, fmt.Sprintf("%s.md", ticket))

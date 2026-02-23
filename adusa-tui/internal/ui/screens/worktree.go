@@ -218,6 +218,14 @@ type diffLoadedMsg struct {
 	err  error
 }
 
+type difftoolFinishedMsg struct {
+	err error
+}
+
+type lazygitFinishedMsg struct {
+	err error
+}
+
 func (m *WorktreeModel) loadDiffCmd() tea.Cmd {
 	return func() tea.Msg {
 		diff, err := git.GetDiff(m.worktree.Path)
@@ -389,12 +397,27 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "v":
 			if m.activeTab == TabChanges {
-				m.isLoading = true
-				m.loadingMsg = "Loading diff..."
-				m.showingDiff = true
-				return m, m.loadDiffCmd()
+				files := make([]string, len(m.status))
+				for i, s := range m.status {
+					files[i] = s.Path
+				}
+				c := git.CustomDiffViewerCmd(m.worktree.Path, files)
+				if c == nil {
+					return m, nil
+				}
+				return m, tea.ExecProcess(c, func(err error) tea.Msg {
+					return difftoolFinishedMsg{err: err}
+				})
 			} else if m.activeTab == TabAgent && m.agentStatus == types.AgentDone {
 				m.activeTab = TabChanges
+			}
+			return m, nil
+		case "L":
+			if m.activeTab == TabChanges {
+				c := git.LazyGitCmd(m.worktree.Path)
+				return m, tea.ExecProcess(c, func(err error) tea.Msg {
+					return lazygitFinishedMsg{err: err}
+				})
 			}
 			return m, nil
 		case "s":
@@ -513,6 +536,16 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.diffStat = msg.diffStat
 		}
 		return m, nil
+	case difftoolFinishedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+		}
+		return m, m.loadStatusCmd()
+	case lazygitFinishedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+		}
+		return m, m.loadStatusCmd()
 	case diffLoadedMsg:
 		m.isLoading = false
 		if msg.err != nil {
@@ -795,7 +828,7 @@ func (m WorktreeModel) View() string {
 	rows = append(rows, "")
 
 	if m.activeTab == TabChanges {
-		rows = append(rows, helpStyle.Render("  [v] view diff  [s] stage  [c] commit  [r] refresh  |  [g/a/t/p] tabs  [h/l] prev/next  [q/esc] back"))
+		rows = append(rows, helpStyle.Render("  [v] view diff  [L] lazygit  [s] stage  [c] commit  [r] refresh  |  [g/a/t/p] tabs  [h/l] prev/next  [q/esc] back"))
 	} else {
 		rows = append(rows, helpStyle.Render("  [g] Changes  [a] Agent  [t] Ticket  [p] Plan  |  [h/l] prev/next  [q/esc] back"))
 	}
@@ -1092,6 +1125,7 @@ func (m WorktreeModel) renderHelp() string {
 	lines = append(lines, "")
 	lines = append(lines, helpStyle.Render("  Changes Tab:"))
 	lines = append(lines, "  v:        View diff")
+	lines = append(lines, "  L:        Open lazygit")
 	lines = append(lines, "  s:        Stage all changes")
 	lines = append(lines, "  c:        Commit staged changes")
 	lines = append(lines, "  r:        Refresh status")

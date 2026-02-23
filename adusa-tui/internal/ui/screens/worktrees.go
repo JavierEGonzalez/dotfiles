@@ -64,7 +64,7 @@ func (m WorktreesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyEsc:
 			if m.showingHelp {
 				m.showingHelp = false
 				return m, nil
@@ -178,6 +178,16 @@ func (m WorktreesModel) GetSelectedWorktree() *types.Worktree {
 func (m WorktreesModel) FindByTicket(ticket string) *types.Worktree {
 	for i, wt := range m.worktrees {
 		if wt.Ticket == ticket {
+			m.selectedIdx = i
+			return &m.worktrees[i]
+		}
+	}
+	return nil
+}
+
+func (m WorktreesModel) FindByPath(path string) *types.Worktree {
+	for i, wt := range m.worktrees {
+		if wt.Path == path {
 			m.selectedIdx = i
 			return &m.worktrees[i]
 		}

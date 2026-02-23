@@ -42,7 +42,7 @@ func (m DeleteWorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyEsc, tea.KeyCtrlC:
+		case tea.KeyEsc:
 			return m, func() tea.Msg { return DeleteWorktreeCancelledMsg{} }
 		default:
 			switch msg.String() {

@@ -332,6 +332,30 @@ func GetDiffStat(path string) (string, error) {
 	return string(out), nil
 }
 
+func DifftoolCmd(path string) *exec.Cmd {
+	cmd := exec.Command("git", "difftool", "--no-prompt", "HEAD")
+	cmd.Dir = path
+	return cmd
+}
+
+func CustomDiffViewerCmd(path string, files []string) *exec.Cmd {
+	parts := strings.Fields(config.AppConfig.DiffViewer)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	args := append(parts[1:], files...)
+	cmd := exec.Command(parts[0], args...)
+	cmd.Dir = path
+	return cmd
+}
+
+func LazyGitCmd(path string) *exec.Cmd {
+	cmd := exec.Command("lazygit")
+	cmd.Dir = path
+	return cmd
+}
+
 func StageAll(path string) error {
 	cmd := exec.Command("git", "add", "-A")
 	cmd.Dir = path
