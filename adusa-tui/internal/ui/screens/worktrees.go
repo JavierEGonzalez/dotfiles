@@ -69,10 +69,6 @@ func (m WorktreesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showingHelp = false
 				return m, nil
 			}
-			if m.showingHelp {
-				m.showingHelp = false
-				return m, nil
-			}
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if len(m.worktrees) > 0 {
@@ -175,6 +171,16 @@ func (m WorktreesModel) Refresh() (WorktreesModel, error) {
 func (m WorktreesModel) GetSelectedWorktree() *types.Worktree {
 	if m.selectedIdx >= 0 && m.selectedIdx < len(m.worktrees) {
 		return &m.worktrees[m.selectedIdx]
+	}
+	return nil
+}
+
+func (m WorktreesModel) FindByTicket(ticket string) *types.Worktree {
+	for i, wt := range m.worktrees {
+		if wt.Ticket == ticket {
+			m.selectedIdx = i
+			return &m.worktrees[i]
+		}
 	}
 	return nil
 }

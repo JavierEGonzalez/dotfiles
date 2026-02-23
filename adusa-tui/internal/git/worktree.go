@@ -2,6 +2,7 @@ package git
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,34 +21,26 @@ type FileStatus struct {
 }
 
 func ListWorktrees() ([]types.Worktree, error) {
-	// First, get actual git worktrees from git
 	gitWorktrees, err := listGitWorktrees()
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert git worktrees to our format, creating .worktree-info if needed
 	var worktrees []types.Worktree
 	for _, gw := range gitWorktrees {
-		// Get the base directory name (e.g., "CXPVSP-8440" from the path)
 		dirName := filepath.Base(gw.Path)
-
-		// Check if .worktree-info exists
 		infoPath := config.WorktreeInfoPath(gw.Path)
 		wt := types.Worktree{
 			Path:   gw.Path,
 			Branch: gw.Branch,
 		}
 
-		// Try to load existing info file
 		if info, err := os.ReadFile(infoPath); err == nil {
 			parsed := parseWorktreeInfo(string(info), dirName)
 			wt = parsed
-			wt.Path = gw.Path     // Ensure path is correct
-			wt.Branch = gw.Branch // Ensure branch is current
+			wt.Path = gw.Path
+			wt.Branch = gw.Branch
 		} else {
-			// Create info file for worktrees that don't have one
-			// Extract ticket from directory name if it looks like a ticket
 			ticket := ""
 			if strings.HasPrefix(dirName, "CXPVSP-") {
 				ticket = dirName
@@ -56,10 +49,8 @@ func ListWorktrees() ([]types.Worktree, error) {
 			wt.Ticket = ticket
 			wt.CreatedAt = gw.CreatedAt
 
-			// Write the info file for future use
 			infoContent := fmt.Sprintf("TICKET=%s\nBRANCH=%s\nCREATED=%s\n", ticket, gw.Branch, gw.CreatedAt.Format(time.RFC3339))
 			if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
-				// Log but don't fail - the worktree can still be used
 				fmt.Fprintf(os.Stderr, "Warning: failed to write worktree info for %s: %v\n", dirName, err)
 			}
 		}
@@ -79,11 +70,16 @@ type GitWorktree struct {
 
 // listGitWorktrees uses git worktree list to get actual worktrees
 func listGitWorktrees() ([]GitWorktree, error) {
-	cmd := exec.Command("git", "worktree", "list", "--porcelain")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain")
 	cmd.Dir = config.WorktreeBase
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		// If git command fails, fall back to directory listing
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("git worktree list timed out")
+		}
 		return listWorktreesByDirectory()
 	}
 
@@ -141,13 +137,21 @@ func listWorktreesByDirectory() ([]GitWorktree, error) {
 		}
 
 		path := filepath.Join(config.WorktreeBase, entry.Name())
+
+		gitDir := filepath.Join(path, ".git")
+		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+			continue
+		}
+
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
 
-		// Get branch by reading git symbolic-ref or git rev-parse
 		branch := getBranchFromPath(path)
+		if branch == "unknown" {
+			continue
+		}
 
 		worktrees = append(worktrees, GitWorktree{
 			Path:      path,
@@ -161,7 +165,10 @@ func listWorktreesByDirectory() ([]GitWorktree, error) {
 
 // getBranchFromPath tries to determine the current branch in a directory
 func getBranchFromPath(path string) string {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = path
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -232,6 +239,11 @@ func CreateWorktree(ticket, branchType, description string) (*types.Worktree, er
 	infoPath := config.WorktreeInfoPath(worktreePath)
 	if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
 		return nil, fmt.Errorf("failed to write worktree info: %w", err)
+	}
+
+	createTmuxCmd := exec.Command("tmux", "new-session", "-d", "-s", ticket, "-c", worktreePath)
+	if err := createTmuxCmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
 	return &types.Worktree{

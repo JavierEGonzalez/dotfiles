@@ -9,6 +9,13 @@ import (
 	"github.com/javiergonzalez/adusa-tui/internal/ui/screens"
 )
 
+const (
+	ViewWorktrees = "worktrees"
+	ViewCreate    = "create"
+	ViewDelete    = "delete"
+	ViewWorktree  = "worktree"
+)
+
 type model struct {
 	worktreesScreen      screens.WorktreesModel
 	createWorktreeScreen screens.CreateWorktreeModel
@@ -17,9 +24,17 @@ type model struct {
 	view                 string
 	width                int
 	height               int
+	initTicket           string
 }
 
 func (m model) Init() tea.Cmd {
+	if m.initTicket != "" {
+		wt := m.worktreesScreen.FindByTicket(m.initTicket)
+		if wt != nil {
+			m.view = ViewWorktree
+			m.worktreeScreen = screens.NewWorktreeModel(*wt)
+		}
+	}
 	return tea.ClearScreen
 }
 
@@ -31,11 +46,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch m.view {
-	case "create":
+	case ViewCreate:
 		return m.updateCreateWorktree(msg)
-	case "delete":
+	case ViewDelete:
 		return m.updateDeleteWorktree(msg)
-	case "worktree":
+	case ViewWorktree:
 		return m.updateWorktree(msg)
 	default:
 		return m.updateWorktrees(msg)
@@ -49,15 +64,15 @@ func (m model) updateWorktrees(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case screens.WorktreeSelectedMsg:
-		m.view = "worktree"
+		m.view = ViewWorktree
 		m.worktreeScreen = screens.NewWorktreeModel(msg.Worktree)
-		return m, nil
+		return m, m.worktreeScreen.Init()
 	case screens.CreateWorktreeMsg:
-		m.view = "create"
+		m.view = ViewCreate
 		m.createWorktreeScreen = screens.NewCreateWorktreeModel()
 		return m, nil
 	case screens.DeleteWorktreeMsg:
-		m.view = "delete"
+		m.view = ViewDelete
 		m.deleteWorktreeScreen = screens.NewDeleteWorktreeModel(msg.Worktree)
 		return m, nil
 	}
@@ -70,7 +85,7 @@ func (m model) updateWorktrees(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateCreateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case screens.CreateWorktreeDoneMsg:
-		m.view = ""
+		m.view = ViewWorktrees
 		wt, _ := m.worktreesScreen.Refresh()
 		m.worktreesScreen = wt
 		return m, nil
@@ -84,12 +99,12 @@ func (m model) updateCreateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateDeleteWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case screens.DeleteWorktreeDoneMsg:
-		m.view = ""
+		m.view = ViewWorktrees
 		wt, _ := m.worktreesScreen.Refresh()
 		m.worktreesScreen = wt
 		return m, nil
 	case screens.DeleteWorktreeCancelledMsg:
-		m.view = ""
+		m.view = ViewWorktrees
 		return m, nil
 	default:
 		newScreen, cmd := m.deleteWorktreeScreen.Update(msg)
@@ -101,7 +116,7 @@ func (m model) updateDeleteWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case screens.WorktreeBackMsg:
-		m.view = ""
+		m.view = ViewWorktrees
 		return m, nil
 	default:
 		newScreen, cmd := m.worktreeScreen.Update(msg)
@@ -113,11 +128,11 @@ func (m model) updateWorktree(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var content string
 	switch m.view {
-	case "create":
+	case ViewCreate:
 		content = m.createWorktreeScreen.View()
-	case "delete":
+	case ViewDelete:
 		content = m.deleteWorktreeScreen.View()
-	case "worktree":
+	case ViewWorktree:
 		content = m.worktreeScreen.View()
 	default:
 		// For the main worktrees view, center it if there's room
@@ -142,8 +157,14 @@ func centerContent(content string, width, height int) string {
 }
 
 func main() {
+	initialTicket := ""
+	if len(os.Args) > 1 {
+		initialTicket = os.Args[1]
+	}
+
 	if _, err := tea.NewProgram(model{
 		worktreesScreen: screens.NewWorktreesModel(),
+		initTicket:      initialTicket,
 	}).Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -86,16 +87,18 @@ type WorktreeModel struct {
 	err              error
 	status           []git.FileStatus
 	diff             string
+	diffStat         string
 	showingDiff      bool
 	diffScroll       int
 	commitMode       bool
 	commitMsg        string
+	appendingNotes   bool
+	notesContent     string
 	isLoading        bool
 	loadingMsg       string
 	ticket           *types.TicketInfo
 	ticketScroll     int
-	agentRunning     bool
-	agentDone        bool
+	agentStatus      types.AgentStatus
 	promptModel      bool
 	promptIter       bool
 	agentModel       string
@@ -112,14 +115,15 @@ func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
 		activeTab:        TabChanges,
 		agentModel:       ModelClaudeSonnet,
 		agentIter:        "3",
-		modelSelectorIdx: 1, // Claude Sonnet is at index 1
+		modelSelectorIdx: 1,
+		isLoading:        true,
+		loadingMsg:       "Loading git status...",
 	}
-	m = m.loadStatus()
 	return m
 }
 
 func (m WorktreeModel) Init() tea.Cmd {
-	return nil
+	return m.loadStatusCmd()
 }
 
 func (m WorktreeModel) loadStatus() WorktreeModel {
@@ -185,7 +189,80 @@ func (m WorktreeModel) fetchTicket() WorktreeModel {
 	return m
 }
 
-func (m WorktreeModel) editTicket() WorktreeModel {
+type statusLoadedMsg struct {
+	status []git.FileStatus
+	err    error
+}
+
+func (m *WorktreeModel) loadStatusCmd() tea.Cmd {
+	return func() tea.Msg {
+		status, err := git.GetStatus(m.worktree.Path)
+		return statusLoadedMsg{status: status, err: err}
+	}
+}
+
+type diffStatLoadedMsg struct {
+	diffStat string
+	err      error
+}
+
+func (m *WorktreeModel) loadDiffStatCmd() tea.Cmd {
+	return func() tea.Msg {
+		diffStat, err := git.GetDiffStat(m.worktree.Path)
+		return diffStatLoadedMsg{diffStat: diffStat, err: err}
+	}
+}
+
+type diffLoadedMsg struct {
+	diff string
+	err  error
+}
+
+func (m *WorktreeModel) loadDiffCmd() tea.Cmd {
+	return func() tea.Msg {
+		diff, err := git.GetDiff(m.worktree.Path)
+		return diffLoadedMsg{diff: diff, err: err}
+	}
+}
+
+type ticketLoadedMsg struct {
+	ticket *types.TicketInfo
+	err    error
+}
+
+func (m *WorktreeModel) loadTicketCmd() tea.Cmd {
+	return func() tea.Msg {
+		ticket, err := jira.LoadTicketCache(m.worktree.Ticket)
+		if err != nil {
+			return ticketLoadedMsg{ticket: nil, err: err}
+		}
+		if ticket == nil {
+			ticket, err = jira.FetchTicket(m.worktree.Ticket)
+			if err != nil {
+				return ticketLoadedMsg{ticket: nil, err: err}
+			}
+			if err := jira.SaveTicketCache(ticket); err != nil {
+				return ticketLoadedMsg{ticket: nil, err: err}
+			}
+		}
+		return ticketLoadedMsg{ticket: ticket, err: nil}
+	}
+}
+
+func (m *WorktreeModel) fetchTicketCmd() tea.Cmd {
+	return func() tea.Msg {
+		ticket, err := jira.FetchTicket(m.worktree.Ticket)
+		if err != nil {
+			return ticketLoadedMsg{ticket: nil, err: err}
+		}
+		if err := jira.SaveTicketCache(ticket); err != nil {
+			return ticketLoadedMsg{ticket: nil, err: err}
+		}
+		return ticketLoadedMsg{ticket: ticket, err: nil}
+	}
+}
+
+func (m *WorktreeModel) editTicket() {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vim"
@@ -195,21 +272,13 @@ func (m WorktreeModel) editTicket() WorktreeModel {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
-	return m.loadTicket()
+	m.isLoading = true
+	m.loadingMsg = "Loading ticket..."
 }
 
-func (m WorktreeModel) appendToTicketNotes() WorktreeModel {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vim"
-	}
-	cachePath := m.getTicketCachePath()
-	cmd := exec.Command(editor, cachePath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
-	return m.loadTicket()
+func (m *WorktreeModel) appendToTicketNotes() {
+	m.appendingNotes = true
+	m.notesContent = ""
 }
 
 func (m *WorktreeModel) getTicketCachePath() string {
@@ -223,6 +292,9 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.commitMode {
 		return m.updateCommitMode(msg)
+	}
+	if m.appendingNotes {
+		return m.updateAppendNotesMode(msg)
 	}
 	if m.promptModel || m.promptIter || m.selectingModel {
 		return m.updateAgentPrompts(msg)
@@ -247,15 +319,16 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "a":
 			if m.activeTab == TabTicket {
-				m = m.appendToTicketNotes()
+				m.appendToTicketNotes()
 				return m, nil
 			}
 			m.activeTab = TabAgent
 			return m, nil
 		case "t":
 			m.activeTab = TabTicket
-			m = m.loadTicket()
-			return m, nil
+			m.isLoading = true
+			m.loadingMsg = "Loading ticket..."
+			return m, m.loadTicketCmd()
 		case "p":
 			m.activeTab = TabPlan
 			m = m.loadPlan()
@@ -278,24 +351,26 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return WorktreeBackMsg{} }
 		case "r":
 			if m.activeTab == TabChanges {
-				m = m.loadStatus()
+				m.isLoading = true
+				m.loadingMsg = "Loading git status..."
+				return m, m.loadStatusCmd()
 			} else if m.activeTab == TabTicket {
-				m = m.fetchTicket()
-			} else if m.activeTab == TabAgent && !m.agentRunning {
-				m.agentRunning = true
-				m.agentDone = false
-				return m, m.runAgentCmd("ralph")
+				m.isLoading = true
+				m.loadingMsg = "Fetching from Jira..."
+				return m, m.fetchTicketCmd()
+			} else if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
+				m.agentStatus = types.AgentRunning
+				return m, tea.Sequence(m.runAgentCmd("ralph"), m.scheduleTmuxCheck())
 			}
 			return m, nil
 		case "o":
-			if m.activeTab == TabAgent && !m.agentRunning {
-				m.agentRunning = true
-				m.agentDone = false
-				return m, m.runAgentCmd("opencode")
+			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
+				m.agentStatus = types.AgentRunning
+				return m, tea.Sequence(m.runAgentCmd("opencode"), m.scheduleTmuxCheck())
 			}
 			return m, nil
 		case "m":
-			if m.activeTab == TabAgent && !m.agentRunning {
+			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
 				m.selectingModel = true
 				// Find the current model's index
 				for i, model := range AvailableModels {
@@ -307,16 +382,18 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "i":
-			if m.activeTab == TabAgent && !m.agentRunning {
+			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
 				m.promptIter = true
 				m.agentIter = ""
 			}
 			return m, nil
 		case "v":
 			if m.activeTab == TabChanges {
-				m.loadDiff()
+				m.isLoading = true
+				m.loadingMsg = "Loading diff..."
 				m.showingDiff = true
-			} else if m.activeTab == TabAgent && m.agentDone {
+				return m, m.loadDiffCmd()
+			} else if m.activeTab == TabAgent && m.agentStatus == types.AgentDone {
 				m.activeTab = TabChanges
 			}
 			return m, nil
@@ -329,12 +406,13 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					m.err = err
 				} else {
-					m = m.loadStatus()
+					m.isLoading = true
+					m.loadingMsg = "Loading git status..."
+					return m, m.loadStatusCmd()
 				}
-			} else if m.activeTab == TabAgent && m.agentRunning {
+			} else if m.activeTab == TabAgent && m.agentStatus == types.AgentRunning {
 				exec.Command("tmux", "kill-session", "-t", m.worktree.Ticket).Run()
-				m.agentRunning = false
-				m.agentDone = true
+				m.agentStatus = types.AgentDone
 			}
 			return m, nil
 		case "c":
@@ -346,7 +424,7 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.commitMode = true
 				m.commitMsg = fmt.Sprintf("[%s]: ", m.worktree.Ticket)
 			}
-			if m.activeTab == TabAgent && m.agentDone {
+			if m.activeTab == TabAgent && m.agentStatus == types.AgentDone {
 				m.activeTab = TabChanges
 				m.commitMode = true
 				m.commitMsg = fmt.Sprintf("[%s]: ", m.worktree.Ticket)
@@ -354,7 +432,8 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "e":
 			if m.activeTab == TabTicket {
-				m = m.editTicket()
+				m.editTicket()
+				return m, m.loadTicketCmd()
 			} else if m.activeTab == TabPlan && m.planExists {
 				m = m.editPlan()
 			}
@@ -418,6 +497,48 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isLoading = false
 		m.confirmPlan = false
 		m = m.loadPlan()
+		return m, nil
+	case statusLoadedMsg:
+		m.isLoading = false
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.status = msg.status
+		}
+		return m, m.loadDiffStatCmd()
+	case diffStatLoadedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.diffStat = msg.diffStat
+		}
+		return m, nil
+	case diffLoadedMsg:
+		m.isLoading = false
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.diff = msg.diff
+			m.diffScroll = 0
+		}
+		return m, nil
+	case ticketLoadedMsg:
+		m.isLoading = false
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.ticket = msg.ticket
+			m.ticketScroll = 0
+		}
+		return m, nil
+	case tmuxSessionCheckMsg:
+		if m.agentStatus == types.AgentRunning {
+			if !msg.running {
+				m.agentStatus = types.AgentDone
+			} else {
+				return m, m.scheduleTmuxCheck()
+			}
+		}
 		return m, nil
 	}
 
@@ -486,6 +607,50 @@ func (m WorktreeModel) updateCommitMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m WorktreeModel) updateAppendNotesMode(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			if m.notesContent == "" {
+				m.appendingNotes = false
+				m.notesContent = ""
+				return m, nil
+			}
+			cachePath := m.getTicketCachePath()
+			noteEntry := fmt.Sprintf("\n\n## Notes\n%s\n", m.notesContent)
+			f, err := os.OpenFile(cachePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				m.err = err
+			} else {
+				defer f.Close()
+				_, err := f.WriteString(noteEntry)
+				if err != nil {
+					m.err = err
+				}
+			}
+			m.appendingNotes = false
+			m.notesContent = ""
+			m.isLoading = true
+			m.loadingMsg = "Loading ticket..."
+			return m, m.loadTicketCmd()
+		case tea.KeyEscape:
+			m.appendingNotes = false
+			m.notesContent = ""
+			return m, nil
+		case tea.KeyBackspace:
+			if len(m.notesContent) > 0 {
+				m.notesContent = m.notesContent[:len(m.notesContent)-1]
+			}
+			return m, nil
+		}
+		if len(msg.String()) == 1 {
+			m.notesContent += msg.String()
+		}
+	}
+	return m, nil
+}
+
 func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -530,7 +695,11 @@ func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
 	return func() tea.Msg {
 		sessionName := m.worktree.Ticket
-		exec.Command("tmux", "new-session", "-d", "-s", sessionName, "-c", m.worktree.Path).Run()
+
+		checkCmd := exec.Command("tmux", "has-session", "-t", sessionName)
+		if err := checkCmd.Run(); err != nil {
+			exec.Command("tmux", "new-session", "-d", "-s", sessionName, "-c", m.worktree.Path).Run()
+		}
 
 		var cmdStr string
 		if agentType == "opencode" {
@@ -542,6 +711,26 @@ func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
 		exec.Command("tmux", "send-keys", "-t", sessionName, cmdStr).Run()
 		return nil
 	}
+}
+
+type tmuxSessionCheckMsg struct {
+	running bool
+}
+
+func (m *WorktreeModel) checkTmuxSessionCmd() tea.Cmd {
+	return func() tea.Msg {
+		sessionName := m.worktree.Ticket
+		checkCmd := exec.Command("tmux", "has-session", "-t", sessionName)
+		err := checkCmd.Run()
+		running := err == nil
+		return tmuxSessionCheckMsg{running: running}
+	}
+}
+
+func (m *WorktreeModel) scheduleTmuxCheck() tea.Cmd {
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
+		return tmuxSessionCheckMsg{}
+	})
 }
 
 func (m WorktreeModel) renderAgentTab() string {
@@ -563,12 +752,12 @@ func (m WorktreeModel) renderAgentTab() string {
 	}
 
 	var lines []string
-	if m.agentRunning {
+	if m.agentStatus == types.AgentRunning {
 		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Running in tmux session: %s", m.worktree.Ticket)))
 		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  tmux attach -t %s", m.worktree.Ticket)))
 		lines = append(lines, "")
 		lines = append(lines, helpStyle.Render("  [s] Stop/kill tmux session"))
-	} else if m.agentDone {
+	} else if m.agentStatus == types.AgentDone {
 		lines = append(lines, infoTextStyle.Render("  Agent finished or stopped."))
 		lines = append(lines, "")
 		lines = append(lines, helpStyle.Render("  [v] View Changes  [c] Commit Changes"))
@@ -667,6 +856,12 @@ func (m WorktreeModel) renderChangesTab() string {
 	}
 
 	var lines []string
+
+	if m.diffStat != "" {
+		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  %s", m.diffStat)))
+		lines = append(lines, "")
+	}
+
 	lines = append(lines, infoTextStyle.Render("  Status:"))
 
 	for _, s := range m.status {
@@ -723,6 +918,10 @@ func (m WorktreeModel) renderDiffView() string {
 }
 
 func (m WorktreeModel) renderTicketTab() string {
+	if m.appendingNotes {
+		return promptStyle.Render(fmt.Sprintf("  Add note: %s", m.notesContent)) + "\n\n" +
+			helpStyle.Render("  Enter: save  Esc: cancel")
+	}
 	if m.ticket == nil {
 		if m.err != nil {
 			return infoTextStyle.Render("  Error loading ticket: " + m.err.Error())
