@@ -6,6 +6,7 @@ type Worktree struct {
 	Ticket    string
 	Branch    string
 	Path      string
+	Repo      string
 	CreatedAt time.Time
 }
 

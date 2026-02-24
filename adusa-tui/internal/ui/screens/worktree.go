@@ -106,6 +106,8 @@ type WorktreeModel struct {
 	showingHelp      bool
 	modelSelectorIdx int
 	selectingModel   bool
+	selectingFile    bool
+	fileSelectorIdx  int
 }
 
 func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
@@ -307,6 +309,9 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.promptModel || m.promptIter || m.selectingModel {
 		return m.updateAgentPrompts(msg)
 	}
+	if m.selectingFile {
+		return m.updateFileSelection(msg)
+	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -396,7 +401,10 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "v":
-			if m.activeTab == TabChanges {
+			if m.activeTab == TabChanges && len(m.status) > 0 {
+				m.selectingFile = true
+				m.fileSelectorIdx = 0
+			} else if m.activeTab == TabChanges {
 				files := make([]string, len(m.status))
 				for i, s := range m.status {
 					files[i] = s.Path
@@ -725,6 +733,57 @@ func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m WorktreeModel) updateFileSelection(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			m.selectingFile = false
+			return m, nil
+		case "enter":
+			if m.fileSelectorIdx >= 0 && m.fileSelectorIdx < len(m.status) {
+				file := m.status[m.fileSelectorIdx].Path
+				c := git.CustomDiffViewerCmd(m.worktree.Path, []string{file})
+				if c == nil {
+					m.selectingFile = false
+					return m, nil
+				}
+				m.selectingFile = false
+				return m, tea.ExecProcess(c, func(err error) tea.Msg {
+					return difftoolFinishedMsg{err: err}
+				})
+			}
+			m.selectingFile = false
+			return m, nil
+		case "a":
+			files := make([]string, len(m.status))
+			for i, s := range m.status {
+				files[i] = s.Path
+			}
+			c := git.CustomDiffViewerCmd(m.worktree.Path, files)
+			if c == nil {
+				m.selectingFile = false
+				return m, nil
+			}
+			m.selectingFile = false
+			return m, tea.ExecProcess(c, func(err error) tea.Msg {
+				return difftoolFinishedMsg{err: err}
+			})
+		case "up", "k":
+			if m.fileSelectorIdx > 0 {
+				m.fileSelectorIdx--
+			}
+			return m, nil
+		case "down", "j":
+			if m.fileSelectorIdx < len(m.status)-1 {
+				m.fileSelectorIdx++
+			}
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
 func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
 	return func() tea.Msg {
 		sessionName := m.worktree.Ticket
@@ -829,7 +888,7 @@ func (m WorktreeModel) View() string {
 
 	if m.activeTab == TabChanges {
 		rows = append(rows, helpStyle.Render("  [v] view diff  [L] lazygit  [s] stage  [c] commit  [r] refresh  |  [g/a/t/p] tabs  [h/l] prev/next  [q/esc] back"))
-	} else {
+	} else if m.activeTab == TabAgent {
 		rows = append(rows, helpStyle.Render("  [g] Changes  [a] Agent  [t] Ticket  [p] Plan  |  [h/l] prev/next  [q/esc] back"))
 	}
 
@@ -882,6 +941,33 @@ func (m WorktreeModel) renderTabContent() string {
 func (m WorktreeModel) renderChangesTab() string {
 	if m.commitMode {
 		return promptStyle.Render(fmt.Sprintf("  Commit message: %s", m.commitMsg))
+	}
+
+	if m.selectingFile {
+		var lines []string
+		lines = append(lines, promptStyle.Render("  Select file to view (↑/↓ to navigate, Enter to view, a for all, Esc to cancel):"))
+		lines = append(lines, "")
+		for i, s := range m.status {
+			var statusStr string
+			switch s.Status {
+			case "M":
+				statusStr = statusModifiedStyle.Render("M")
+			case "A":
+				statusStr = statusAddedStyle.Render("A")
+			case "D":
+				statusStr = statusDeletedStyle.Render("D")
+			case "?":
+				statusStr = statusUntrackedStyle.Render("?")
+			default:
+				statusStr = s.Status
+			}
+			if i == m.fileSelectorIdx {
+				lines = append(lines, tabActiveStyle.Render(fmt.Sprintf("  > %s  %s", statusStr, s.Path)))
+			} else {
+				lines = append(lines, infoTextStyle.Render(fmt.Sprintf("    %s  %s", statusStr, s.Path)))
+			}
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 
 	if len(m.status) == 0 {

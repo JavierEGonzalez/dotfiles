@@ -25,9 +25,12 @@ var (
 
 type CreateWorktreeModel struct {
 	step        int
+	repoInput   textinput.Model
 	ticketInput textinput.Model
 	branchInput textinput.Model
 	descInput   textinput.Model
+	repo        string
+	repoPath    string
 	ticket      string
 	branchType  string
 	description string
@@ -36,9 +39,20 @@ type CreateWorktreeModel struct {
 }
 
 func NewCreateWorktreeModel() CreateWorktreeModel {
+	repos := config.AppConfig.Repos
+	defaultRepo := ""
+	defaultPath := ""
+	if len(repos) > 0 {
+		defaultRepo = repos[0].Name
+		defaultPath = repos[0].Path
+	}
+
+	repo := textinput.New()
+	repo.Placeholder = defaultRepo + " (or enter repo name)"
+	repo.Prompt = "Repo: "
+
 	ticket := textinput.New()
 	ticket.Placeholder = "CXPVSP-123"
-	ticket.Focus()
 	ticket.Prompt = "Ticket: "
 
 	branch := textinput.New()
@@ -51,9 +65,12 @@ func NewCreateWorktreeModel() CreateWorktreeModel {
 
 	return CreateWorktreeModel{
 		step:        0,
+		repoInput:   repo,
 		ticketInput: ticket,
 		branchInput: branch,
 		descInput:   desc,
+		repo:        defaultRepo,
+		repoPath:    defaultPath,
 	}
 }
 
@@ -83,14 +100,18 @@ func (m CreateWorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.step {
 	case 0:
+		newInput, cmd := m.repoInput.Update(msg)
+		m.repoInput = newInput
+		return m, cmd
+	case 1:
 		newInput, cmd := m.ticketInput.Update(msg)
 		m.ticketInput = newInput
 		return m, cmd
-	case 1:
+	case 2:
 		newInput, cmd := m.branchInput.Update(msg)
 		m.branchInput = newInput
 		return m, cmd
-	case 2:
+	case 3:
 		newInput, cmd := m.descInput.Update(msg)
 		m.descInput = newInput
 		return m, cmd
@@ -102,6 +123,26 @@ func (m CreateWorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 	switch m.step {
 	case 0:
+		repoInput := strings.TrimSpace(m.repoInput.Value())
+		if repoInput != "" {
+			found := false
+			for _, r := range config.AppConfig.Repos {
+				if r.Name == repoInput {
+					m.repo = r.Name
+					m.repoPath = r.Path
+					found = true
+					break
+				}
+			}
+			if !found {
+				m.err = fmt.Errorf("repo not found: %s", repoInput)
+				return m, nil
+			}
+		}
+		m.step = 1
+		m.ticketInput.Focus()
+		return m, nil
+	case 1:
 		ticket := strings.TrimSpace(m.ticketInput.Value())
 		if ticket == "" {
 			m.err = fmt.Errorf("ticket number is required")
@@ -113,10 +154,10 @@ func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.ticket = ticket
-		m.step = 1
+		m.step = 2
 		m.branchInput.Focus()
 		return m, nil
-	case 1:
+	case 2:
 		branchType := strings.TrimSpace(m.branchInput.Value())
 		if branchType == "" {
 			m.err = fmt.Errorf("branch type is required (f/b/h)")
@@ -127,10 +168,10 @@ func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.branchType = branchType
-		m.step = 2
+		m.step = 3
 		m.descInput.Focus()
 		return m, nil
-	case 2:
+	case 3:
 		m.description = strings.TrimSpace(m.descInput.Value())
 		m.err = m.createWorktree()
 		if m.err == nil {
@@ -142,14 +183,14 @@ func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 }
 
 func (m CreateWorktreeModel) createWorktree() error {
-	_, err := git.CreateWorktree(m.ticket, m.branchType, m.description)
+	_, err := git.CreateWorktree(m.ticket, m.branchType, m.description, m.repoPath)
 	return err
 }
 
 func (m CreateWorktreeModel) View() string {
 	if m.success {
 		dirName := strings.TrimPrefix(m.ticket, "CXPVSP-")
-		previewPath := fmt.Sprintf("%s/%s", config.WorktreeBase, dirName)
+		previewPath := fmt.Sprintf("%s/%s", m.repoPath, dirName)
 		return fmt.Sprintf("\n  %s\n\n  Worktree created at: %s\n\n  Press Enter to continue...",
 			successStyle.Render("✓ Worktree created successfully"),
 			previewPath)
@@ -167,11 +208,23 @@ func (m CreateWorktreeModel) View() string {
 
 	switch m.step {
 	case 0:
+		repoNames := make([]string, len(config.AppConfig.Repos))
+		for i, r := range config.AppConfig.Repos {
+			repoNames[i] = r.Name
+		}
+		lines = append(lines, labelStyle.Render(fmt.Sprintf("Select repo (%s)", strings.Join(repoNames, ", "))))
+		lines = append(lines, inputStyle.Render(m.repoInput.View()))
+		lines = append(lines, "")
+		lines = append(lines, labelStyle.Render("Press Enter to continue, Esc to cancel"))
+	case 1:
+		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Repo"), m.repo))
+		lines = append(lines, "")
 		lines = append(lines, labelStyle.Render("Enter ticket number (e.g., CXPVSP-123)"))
 		lines = append(lines, inputStyle.Render(m.ticketInput.View()))
 		lines = append(lines, "")
 		lines = append(lines, labelStyle.Render("Press Enter to continue, Esc to cancel"))
-	case 1:
+	case 2:
+		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Repo"), m.repo))
 		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Ticket"), m.ticket))
 		lines = append(lines, "")
 		lines = append(lines, labelStyle.Render("Select branch type"))
@@ -179,9 +232,9 @@ func (m CreateWorktreeModel) View() string {
 		lines = append(lines, inputStyle.Render(m.branchInput.View()))
 		lines = append(lines, "")
 		lines = append(lines, labelStyle.Render("Press Enter to continue, Esc to cancel"))
-	case 2:
+	case 3:
 		dirName := strings.TrimPrefix(m.ticket, "CXPVSP-")
-		previewPath := fmt.Sprintf("%s/%s", config.WorktreeBase, dirName)
+		previewPath := fmt.Sprintf("%s/%s", m.repoPath, dirName)
 		branchTypeName := map[string]string{"f": "feature", "b": "bugfix", "h": "hotfix"}[m.branchType]
 		desc := m.description
 		if desc == "" {
@@ -189,6 +242,7 @@ func (m CreateWorktreeModel) View() string {
 		}
 		branchName := fmt.Sprintf("%s/%s-%s", branchTypeName, dirName, desc)
 
+		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Repo"), m.repo))
 		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Ticket"), m.ticket))
 		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Branch Type"), branchTypeName))
 		if m.description != "" {

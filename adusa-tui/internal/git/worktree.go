@@ -21,44 +21,49 @@ type FileStatus struct {
 }
 
 func ListWorktrees() ([]types.Worktree, error) {
-	gitWorktrees, err := listGitWorktrees()
-	if err != nil {
-		return nil, err
-	}
+	var allWorktrees []types.Worktree
 
-	var worktrees []types.Worktree
-	for _, gw := range gitWorktrees {
-		dirName := filepath.Base(gw.Path)
-		infoPath := config.WorktreeInfoPath(gw.Path)
-		wt := types.Worktree{
-			Path:   gw.Path,
-			Branch: gw.Branch,
+	for _, repo := range config.AppConfig.Repos {
+		gitWorktrees, err := listGitWorktrees(repo.Path)
+		if err != nil {
+			continue
 		}
 
-		if info, err := os.ReadFile(infoPath); err == nil {
-			parsed := parseWorktreeInfo(string(info), dirName)
-			wt = parsed
-			wt.Path = gw.Path
-			wt.Branch = gw.Branch
-		} else {
-			ticket := ""
-			if strings.HasPrefix(dirName, "CXPVSP-") {
-				ticket = dirName
+		for _, gw := range gitWorktrees {
+			dirName := filepath.Base(gw.Path)
+			infoPath := config.WorktreeInfoPath(gw.Path)
+			wt := types.Worktree{
+				Path:   gw.Path,
+				Branch: gw.Branch,
+				Repo:   repo.Name,
 			}
 
-			wt.Ticket = ticket
-			wt.CreatedAt = gw.CreatedAt
+			if info, err := os.ReadFile(infoPath); err == nil {
+				parsed := parseWorktreeInfo(string(info), dirName, repo.Path)
+				wt = parsed
+				wt.Path = gw.Path
+				wt.Branch = gw.Branch
+				wt.Repo = repo.Name
+			} else {
+				ticket := ""
+				if strings.HasPrefix(dirName, "CXPVSP-") {
+					ticket = dirName
+				}
 
-			infoContent := fmt.Sprintf("TICKET=%s\nBRANCH=%s\nCREATED=%s\n", ticket, gw.Branch, gw.CreatedAt.Format(time.RFC3339))
-			if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to write worktree info for %s: %v\n", dirName, err)
+				wt.Ticket = ticket
+				wt.CreatedAt = gw.CreatedAt
+
+				infoContent := fmt.Sprintf("TICKET=%s\nBRANCH=%s\nCREATED=%s\n", ticket, gw.Branch, gw.CreatedAt.Format(time.RFC3339))
+				if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to write worktree info for %s: %v\n", dirName, err)
+				}
 			}
+
+			allWorktrees = append(allWorktrees, wt)
 		}
-
-		worktrees = append(worktrees, wt)
 	}
 
-	return worktrees, nil
+	return allWorktrees, nil
 }
 
 // GitWorktree represents a worktree from git worktree list
@@ -69,18 +74,18 @@ type GitWorktree struct {
 }
 
 // listGitWorktrees uses git worktree list to get actual worktrees
-func listGitWorktrees() ([]GitWorktree, error) {
+func listGitWorktrees(repoPath string) ([]GitWorktree, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain")
-	cmd.Dir = config.WorktreeBase
+	cmd.Dir = repoPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("git worktree list timed out")
 		}
-		return listWorktreesByDirectory()
+		return listWorktreesByDirectory(repoPath)
 	}
 
 	var worktrees []GitWorktree
@@ -124,8 +129,8 @@ func listGitWorktrees() ([]GitWorktree, error) {
 }
 
 // listWorktreesByDirectory falls back to directory listing if git command fails
-func listWorktreesByDirectory() ([]GitWorktree, error) {
-	entries, err := os.ReadDir(config.WorktreeBase)
+func listWorktreesByDirectory(repoPath string) ([]GitWorktree, error) {
+	entries, err := os.ReadDir(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read worktree base: %w", err)
 	}
@@ -136,7 +141,7 @@ func listWorktreesByDirectory() ([]GitWorktree, error) {
 			continue
 		}
 
-		path := filepath.Join(config.WorktreeBase, entry.Name())
+		path := filepath.Join(repoPath, entry.Name())
 
 		gitDir := filepath.Join(path, ".git")
 		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
@@ -177,9 +182,9 @@ func getBranchFromPath(path string) string {
 	return strings.TrimSpace(string(out))
 }
 
-func parseWorktreeInfo(content, dirName string) types.Worktree {
+func parseWorktreeInfo(content, dirName, basePath string) types.Worktree {
 	wt := types.Worktree{
-		Path: filepath.Join(config.WorktreeBase, dirName),
+		Path: filepath.Join(basePath, dirName),
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(content))
@@ -201,9 +206,15 @@ func parseWorktreeInfo(content, dirName string) types.Worktree {
 	return wt
 }
 
-func CreateWorktree(ticket, branchType, description string) (*types.Worktree, error) {
+func CreateWorktree(ticket, branchType, description, repoPath string) (*types.Worktree, error) {
+	repo := config.GetRepoByPath(repoPath)
+	repoName := repo.Name
+	if repoName == "" {
+		repoName = filepath.Base(repoPath)
+	}
+
 	dirName := strings.TrimPrefix(ticket, "CXPVSP-")
-	worktreePath := filepath.Join(config.WorktreeBase, dirName)
+	worktreePath := filepath.Join(repoPath, dirName)
 
 	prefix := map[string]string{
 		"f": "feature",
@@ -217,17 +228,17 @@ func CreateWorktree(ticket, branchType, description string) (*types.Worktree, er
 	}
 	branch := fmt.Sprintf("%s/%s-%s", prefix, dirName, branchDesc)
 
-	if err := os.MkdirAll(config.WorktreeBase, 0755); err != nil {
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create worktree base: %w", err)
 	}
 
 	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath)
-	cmd.Dir = config.WorktreeBase
+	cmd.Dir = repoPath
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("failed to create worktree: %w, output: %s", err, string(out))
 	}
 
-	envSecretsSrc := filepath.Join(config.WorktreeBase, ".env.secrets")
+	envSecretsSrc := filepath.Join(repoPath, ".env.secrets")
 	envSecretsDst := filepath.Join(worktreePath, ".env.secrets")
 	if _, err := os.Stat(envSecretsSrc); err == nil {
 		if err := copyFile(envSecretsSrc, envSecretsDst); err != nil {
@@ -250,6 +261,7 @@ func CreateWorktree(ticket, branchType, description string) (*types.Worktree, er
 		Ticket:    ticket,
 		Branch:    branch,
 		Path:      worktreePath,
+		Repo:      repoName,
 		CreatedAt: time.Now(),
 	}, nil
 }

@@ -9,18 +9,46 @@ import (
 )
 
 var (
-	HomeDir       = os.Getenv("HOME")
-	ScratchDir    = filepath.Join(HomeDir, ".scratch")
-	WorktreeBase  = filepath.Join(HomeDir, "workspace", "prism3")
-	TicketsDir    = filepath.Join(ScratchDir, "tickets")
-	JiraEmailPath = filepath.Join(ScratchDir, "jira.email")
-	JiraTokenPath = filepath.Join(ScratchDir, "jira.token")
-	ConfigDir     = filepath.Join(HomeDir, ".config", "adusa-tui")
-	ConfigPath    = filepath.Join(ConfigDir, "config.toml")
+	HomeDir    = os.Getenv("HOME")
+	ConfigDir  = filepath.Join(HomeDir, ".config", "adusa-tui")
+	ConfigPath = filepath.Join(ConfigDir, "config.toml")
 )
+
+type Repo struct {
+	Name          string `toml:"name"`
+	Path          string `toml:"path"`
+	DefaultBranch string `toml:"default-branch"`
+}
+
+type Jira struct {
+	EmailPath string `toml:"email-path"`
+	TokenPath string `toml:"token-path"`
+	Domain    string `toml:"domain"`
+}
 
 type Config struct {
 	DiffViewer string `toml:"diff-viewer"`
+	ScratchDir string `toml:"scratch-dir"`
+	TicketsDir string `toml:"tickets-dir"`
+	Repos      []Repo `toml:"repo"`
+	Jira       Jira   `toml:"jira"`
+}
+
+func GetRepoPaths() []string {
+	var paths []string
+	for _, repo := range AppConfig.Repos {
+		paths = append(paths, repo.Path)
+	}
+	return paths
+}
+
+func GetRepoByPath(path string) *Repo {
+	for i := range AppConfig.Repos {
+		if AppConfig.Repos[i].Path == path {
+			return &AppConfig.Repos[i]
+		}
+	}
+	return nil
 }
 
 var AppConfig = loadConfig()
@@ -28,6 +56,16 @@ var AppConfig = loadConfig()
 func loadConfig() Config {
 	defaultConfig := Config{
 		DiffViewer: "nvim -c DiffviewOpen",
+		ScratchDir: "",
+		TicketsDir: "",
+		Repos: []Repo{
+			{Name: "prism3", Path: filepath.Join(HomeDir, "workspace", "prism3"), DefaultBranch: "main"},
+		},
+		Jira: Jira{
+			EmailPath: "",
+			TokenPath: "",
+			Domain:    "",
+		},
 	}
 
 	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
@@ -49,6 +87,16 @@ func loadConfig() Config {
 		cfg.DiffViewer = defaultConfig.DiffViewer
 	}
 
+	if len(cfg.Repos) == 0 {
+		cfg.Repos = defaultConfig.Repos
+	}
+
+	for i := range cfg.Repos {
+		if cfg.Repos[i].DefaultBranch == "" {
+			cfg.Repos[i].DefaultBranch = "main"
+		}
+	}
+
 	return cfg
 }
 
@@ -61,12 +109,47 @@ func saveConfig(path string, cfg Config) error {
 	return toml.NewEncoder(f).Encode(cfg)
 }
 
+func GetScratchDir() string {
+	if AppConfig.ScratchDir != "" {
+		return AppConfig.ScratchDir
+	}
+	return filepath.Join(HomeDir, ".scratch")
+}
+
+func GetTicketsDir() string {
+	if AppConfig.TicketsDir != "" {
+		return AppConfig.TicketsDir
+	}
+	return filepath.Join(GetScratchDir(), "tickets")
+}
+
+func GetJiraEmailPath() string {
+	if AppConfig.Jira.EmailPath != "" {
+		return AppConfig.Jira.EmailPath
+	}
+	return filepath.Join(GetScratchDir(), "jira.email")
+}
+
+func GetJiraTokenPath() string {
+	if AppConfig.Jira.TokenPath != "" {
+		return AppConfig.Jira.TokenPath
+	}
+	return filepath.Join(GetScratchDir(), "jira.token")
+}
+
+func GetJiraDomain() string {
+	if AppConfig.Jira.Domain != "" {
+		return AppConfig.Jira.Domain
+	}
+	return "" // User must set their company domain (e.g., "mycompany")
+}
+
 func TicketFilePath(ticket string) string {
-	return filepath.Join(TicketsDir, fmt.Sprintf("%s.md", ticket))
+	return filepath.Join(GetTicketsDir(), fmt.Sprintf("%s.md", ticket))
 }
 
 func PlanFilePath(ticket string) string {
-	return filepath.Join(TicketsDir, fmt.Sprintf("%s_plan.md", ticket))
+	return filepath.Join(GetTicketsDir(), fmt.Sprintf("%s_plan.md", ticket))
 }
 
 func WorktreeInfoPath(path string) string {
@@ -74,11 +157,11 @@ func WorktreeInfoPath(path string) string {
 }
 
 func LoadJiraCredentials() (email, token string, err error) {
-	emailBytes, err := os.ReadFile(JiraEmailPath)
+	emailBytes, err := os.ReadFile(GetJiraEmailPath())
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read jira email: %w", err)
 	}
-	tokenBytes, err := os.ReadFile(JiraTokenPath)
+	tokenBytes, err := os.ReadFile(GetJiraTokenPath())
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read jira token: %w", err)
 	}
@@ -86,7 +169,7 @@ func LoadJiraCredentials() (email, token string, err error) {
 }
 
 func EnsureDirs() error {
-	dirs := []string{ScratchDir, TicketsDir}
+	dirs := []string{GetScratchDir(), GetTicketsDir()}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create dir %s: %w", dir, err)

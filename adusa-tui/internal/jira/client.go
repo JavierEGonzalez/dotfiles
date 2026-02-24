@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/javiergonzalez/adusa-tui/internal/config"
 	"github.com/javiergonzalez/adusa-tui/internal/types"
 )
 
@@ -36,15 +37,9 @@ type JiraResponse struct {
 }
 
 func LoadCredentials() (*Credentials, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	scratchDir := filepath.Join(homeDir, ".scratch")
-
-	emailPath := filepath.Join(scratchDir, "jira.email")
-	tokenPath := filepath.Join(scratchDir, "jira.token")
+	emailPath := config.GetJiraEmailPath()
+	tokenPath := config.GetJiraTokenPath()
+	domain := config.GetJiraDomain()
 
 	emailBytes, err := os.ReadFile(emailPath)
 	if err != nil {
@@ -58,15 +53,6 @@ func LoadCredentials() (*Credentials, error) {
 	}
 	token := strings.TrimSpace(string(tokenBytes))
 
-	domainPath := filepath.Join(scratchDir, "jira.domain")
-	domainBytes, err := os.ReadFile(domainPath)
-	var domain string
-	if err != nil {
-		domain = "atlassian.com"
-	} else {
-		domain = strings.TrimSpace(string(domainBytes))
-	}
-
 	return &Credentials{
 		Email:  email,
 		Token:  token,
@@ -78,6 +64,10 @@ func FetchTicket(key string) (*types.TicketInfo, error) {
 	creds, err := LoadCredentials()
 	if err != nil {
 		return nil, err
+	}
+
+	if creds.Domain == "" {
+		return nil, fmt.Errorf("jira domain not configured. Set your company in config.toml: [[jira]] domain = \"yourcompany\"")
 	}
 
 	url := fmt.Sprintf("https://%s.atlassian.net/rest/api/3/issue/%s", creds.Domain, key)
@@ -143,11 +133,7 @@ func FetchTicket(key string) (*types.TicketInfo, error) {
 }
 
 func getCacheDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-	cacheDir := filepath.Join(homeDir, ".scratch", "tickets")
+	cacheDir := config.GetTicketsDir()
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
