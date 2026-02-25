@@ -396,3 +396,50 @@ func GetCurrentBranch(path string) (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+func GetCurrentWorktree() (*types.Worktree, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	for _, repo := range config.AppConfig.Repos {
+		gitWorktrees, err := listGitWorktrees(repo.Path)
+		if err != nil {
+			continue
+		}
+
+		for _, gw := range gitWorktrees {
+			absPath, err := filepath.Abs(gw.Path)
+			if err != nil {
+				continue
+			}
+
+			if absPath == cwd || gw.Path == cwd {
+				infoPath := config.WorktreeInfoPath(gw.Path)
+				wt := types.Worktree{
+					Path:   gw.Path,
+					Branch: gw.Branch,
+					Repo:   repo.Name,
+				}
+
+				if info, err := os.ReadFile(infoPath); err == nil {
+					parsed := parseWorktreeInfo(string(info), filepath.Base(gw.Path), repo.Path)
+					wt = parsed
+					wt.Path = gw.Path
+					wt.Branch = gw.Branch
+					wt.Repo = repo.Name
+				} else {
+					dirName := filepath.Base(gw.Path)
+					if strings.HasPrefix(dirName, "CXPVSP-") {
+						wt.Ticket = dirName
+					}
+				}
+
+				return &wt, nil
+			}
+		}
+	}
+
+	return nil, nil
+}

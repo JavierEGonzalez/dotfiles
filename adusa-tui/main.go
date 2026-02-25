@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/javiergonzalez/adusa-tui/internal/git"
 	"github.com/javiergonzalez/adusa-tui/internal/ui/screens"
 )
 
@@ -284,8 +285,16 @@ func main() {
 		initialTicket = os.Args[1]
 	}
 
+	worktreesScreen := screens.NewWorktreesModel()
+
+	if initialTicket == "" {
+		if wt, err := git.GetCurrentWorktree(); err == nil && wt != nil {
+			initialTicket = wt.Path
+		}
+	}
+
 	if _, err := tea.NewProgram(model{
-		worktreesScreen: screens.NewWorktreesModel(),
+		worktreesScreen: worktreesScreen,
 		initTicket:      initialTicket,
 	}, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
