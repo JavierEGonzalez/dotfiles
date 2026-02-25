@@ -32,6 +32,7 @@ type Config struct {
 	TicketsDir string `toml:"tickets-dir"`
 	Repos      []Repo `toml:"repo"`
 	Jira       Jira   `toml:"jira"`
+	AgentModel string `toml:"model"`
 }
 
 func GetRepoPaths() []string {
@@ -66,6 +67,7 @@ func loadConfig() Config {
 			TokenPath: "",
 			Domain:    "",
 		},
+		AgentModel: "opencode/minimax-m2.5-free",
 	}
 
 	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
@@ -142,6 +144,13 @@ func GetJiraDomain() string {
 		return AppConfig.Jira.Domain
 	}
 	return "" // User must set their company domain (e.g., "mycompany")
+}
+
+func GetAgentModel() string {
+	if AppConfig.AgentModel != "" {
+		return AppConfig.AgentModel
+	}
+	return "opencode/minimax-m2.5-free"
 }
 
 func TicketFilePath(ticket string) string {

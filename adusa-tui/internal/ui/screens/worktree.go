@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/javiergonzalez/adusa-tui/internal/config"
 	"github.com/javiergonzalez/adusa-tui/internal/git"
 	"github.com/javiergonzalez/adusa-tui/internal/jira"
 	"github.com/javiergonzalez/adusa-tui/internal/types"
@@ -53,27 +54,20 @@ const (
 	TabCount
 )
 
-// Available AI models for agent selection
-const (
-	ModelClaudeSonnet    = "claude-3-5-sonnet-20241022"
-	ModelClaudeOpus      = "claude-3-opus-20250219"
-	ModelClaude3Haiku    = "claude-3-haiku-20240307"
-	ModelGPT4            = "gpt-4"
-	ModelGPT4Turbo       = "gpt-4-turbo"
-	ModelGPT35Turbo      = "gpt-3.5-turbo"
-	ModelGitHubCopilot   = "github-copilot"
-	ModelLocalOpenCodeAI = "local-opencode"
-)
+var AvailableModels []string
 
-var AvailableModels = []string{
-	ModelGitHubCopilot,
-	ModelClaudeSonnet,
-	ModelClaudeOpus,
-	ModelClaude3Haiku,
-	ModelGPT4,
-	ModelGPT4Turbo,
-	ModelGPT35Turbo,
-	ModelLocalOpenCodeAI,
+func LoadAvailableModels() error {
+	cmd := exec.Command("opencode", "models")
+	out, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	AvailableModels = strings.Split(strings.TrimSpace(string(out)), "\n")
+	return nil
+}
+
+func init() {
+	LoadAvailableModels()
 }
 
 type WorktreeModel struct {
@@ -100,9 +94,7 @@ type WorktreeModel struct {
 	ticketScroll     int
 	agentStatus      types.AgentStatus
 	promptModel      bool
-	promptIter       bool
 	agentModel       string
-	agentIter        string
 	showingHelp      bool
 	modelSelectorIdx int
 	selectingModel   bool
@@ -115,9 +107,8 @@ func NewWorktreeModel(worktree types.Worktree) WorktreeModel {
 		showingHelp:      false,
 		worktree:         worktree,
 		activeTab:        TabChanges,
-		agentModel:       ModelClaudeSonnet,
-		agentIter:        "3",
-		modelSelectorIdx: 1,
+		agentModel:       config.GetAgentModel(),
+		modelSelectorIdx: 0,
 		isLoading:        true,
 		loadingMsg:       "Loading git status...",
 	}
@@ -306,7 +297,7 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.appendingNotes {
 		return m.updateAppendNotesMode(msg)
 	}
-	if m.promptModel || m.promptIter || m.selectingModel {
+	if m.promptModel || m.selectingModel {
 		return m.updateAgentPrompts(msg)
 	}
 	if m.selectingFile {
@@ -371,15 +362,12 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.isLoading = true
 				m.loadingMsg = "Fetching from Jira..."
 				return m, m.fetchTicketCmd()
-			} else if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
-				m.agentStatus = types.AgentRunning
-				return m, tea.Sequence(m.runAgentCmd("ralph"), m.scheduleTmuxCheck())
 			}
 			return m, nil
 		case "o":
 			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
 				m.agentStatus = types.AgentRunning
-				return m, tea.Sequence(m.runAgentCmd("opencode"), m.scheduleTmuxCheck())
+				return m, tea.Sequence(m.runAgentCmd(), m.scheduleTmuxCheck())
 			}
 			return m, nil
 		case "m":
@@ -392,12 +380,6 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						break
 					}
 				}
-			}
-			return m, nil
-		case "i":
-			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
-				m.promptIter = true
-				m.agentIter = ""
 			}
 			return m, nil
 		case "v":
@@ -489,6 +471,14 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, nil
+		case "X":
+			if m.activeTab == TabPlan && m.planExists {
+				m.confirmExecute = false
+				m.isLoading = true
+				m.loadingMsg = "Starting OpenCode in tmux..."
+				return m, m.executePlanInTmuxCmd()
+			}
+			return m, nil
 		case "y":
 			if m.activeTab == TabPlan && m.confirmPlan {
 				m.isLoading = true
@@ -498,8 +488,8 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeTab == TabPlan && m.confirmExecute {
 				m.confirmExecute = false
 				m.isLoading = true
-				m.loadingMsg = "Starting OpenCode in tmux..."
-				return m, m.executePlanInTmuxCmd()
+				m.loadingMsg = "Running OpenCode (blocking)..."
+				return m, m.executePlanCmd()
 			}
 			return m, nil
 		case "n":
@@ -700,13 +690,10 @@ func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.selectingModel {
 				m.agentModel = AvailableModels[m.modelSelectorIdx]
 				m.selectingModel = false
-			} else if m.promptIter {
-				m.promptIter = false
 			}
 			return m, nil
 		case tea.KeyEscape:
 			m.selectingModel = false
-			m.promptIter = false
 			return m, nil
 		case tea.KeyUp:
 			if m.selectingModel && m.modelSelectorIdx > 0 {
@@ -718,16 +705,6 @@ func (m WorktreeModel) updateAgentPrompts(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.modelSelectorIdx++
 			}
 			return m, nil
-		case tea.KeyBackspace:
-			if m.promptIter && len(m.agentIter) > 0 {
-				m.agentIter = m.agentIter[:len(m.agentIter)-1]
-			}
-			return m, nil
-		}
-		if len(msg.String()) == 1 {
-			if m.promptIter {
-				m.agentIter += msg.String()
-			}
 		}
 	}
 	return m, nil
@@ -784,7 +761,7 @@ func (m WorktreeModel) updateFileSelection(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
+func (m *WorktreeModel) runAgentCmd() tea.Cmd {
 	return func() tea.Msg {
 		sessionName := m.worktree.Ticket
 
@@ -794,10 +771,12 @@ func (m *WorktreeModel) runAgentCmd(agentType string) tea.Cmd {
 		}
 
 		var cmdStr string
-		if agentType == "opencode" {
-			cmdStr = fmt.Sprintf("opencode run --model %s 'use ralph-implementer skill'\n", m.agentModel)
+		planPath := m.getPlanPath()
+		_, err := os.ReadFile(planPath)
+		if err != nil {
+			cmdStr = fmt.Sprintf("opencode --prompt 'Create a detailed implementation plan for this ticket. First read the ticket info from ~/.scratch/tickets/%s.md, then create a plan file at %s. Do NOT write any code yet, only create the plan.' -m %s\n", m.worktree.Ticket, planPath, m.agentModel)
 		} else {
-			cmdStr = fmt.Sprintf("ralph --model %s --iterations %s\n", m.agentModel, m.agentIter)
+			cmdStr = fmt.Sprintf("opencode --prompt 'Read and implement the plan from %s. Execute each step in order. Run quality checks (typecheck, lint, test) after making changes. Commit after completing meaningful chunks of work. When done, summarize what was implemented.' -m %s\n", planPath, m.agentModel)
 		}
 
 		exec.Command("tmux", "send-keys", "-t", sessionName, cmdStr).Run()
@@ -839,9 +818,6 @@ func (m WorktreeModel) renderAgentTab() string {
 		}
 		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
-	if m.promptIter {
-		return promptStyle.Render(fmt.Sprintf("  Iterations: %s", m.agentIter))
-	}
 
 	var lines []string
 	if m.agentStatus == types.AgentRunning {
@@ -856,9 +832,8 @@ func (m WorktreeModel) renderAgentTab() string {
 	} else {
 		lines = append(lines, infoTextStyle.Render("  Agent Ready"))
 		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Current Model: %s", m.agentModel)))
-		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Iterations: %s", m.agentIter)))
 		lines = append(lines, "")
-		lines = append(lines, helpStyle.Render("  [o] Run OpenCode  [r] Run Ralph  [m] Set Model  [i] Set Iterations"))
+		lines = append(lines, helpStyle.Render("  [o] Run OpenCode  [m] Set Model"))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
@@ -1123,10 +1098,33 @@ type planGeneratedMsg struct{}
 
 func (m *WorktreeModel) generatePlanCmd() tea.Cmd {
 	return func() tea.Msg {
-		path := m.getPlanPath()
-		prompt := fmt.Sprintf("Read ~/.scratch/tickets/%s.md and write a step-by-step implementation plan to %s. DO NOT use the edit or write tools to write anything besides the plan file. DO NOT do any other tasks. Provide extreme detail. Only output the markdown for the plan.", m.worktree.Ticket, path)
-		cmd := exec.Command("opencode", "run", prompt)
-		cmd.Run()
+		homeDir, _ := os.UserHomeDir()
+		ticketPath := fmt.Sprintf("%s/.scratch/tickets/%s.md", homeDir, m.worktree.Ticket)
+		planPath := m.getPlanPath()
+
+		ticketContent, err := os.ReadFile(ticketPath)
+		if err != nil {
+			return planExecutionErrorMsg{err}
+		}
+
+		prompt := fmt.Sprintf(`Create a detailed step-by-step implementation plan based on the ticket info below.
+Write the plan to: %s
+Format as markdown with numbered steps. Each step should be specific and actionable.
+Include file paths, functions, and code details where possible.
+DO NOT write any code - only create the plan file.
+
+## Ticket Info:
+%s`, planPath, ticketContent)
+
+		cmd := exec.Command("opencode", "--prompt", prompt, "-m", m.agentModel)
+		cmd.Dir = m.worktree.Path
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return planExecutionErrorMsg{err}
+		}
 		return planGeneratedMsg{}
 	}
 }
@@ -1134,22 +1132,71 @@ func (m *WorktreeModel) generatePlanCmd() tea.Cmd {
 type planExecutionStartedMsg struct{}
 type planExecutionErrorMsg struct{ err error }
 
+func (m *WorktreeModel) executePlanCmd() tea.Cmd {
+	return func() tea.Msg {
+		homeDir, _ := os.UserHomeDir()
+		planPath := fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+		agentModel := m.agentModel
+
+		planContent, err := os.ReadFile(planPath)
+		if err != nil {
+			return planExecutionErrorMsg{err}
+		}
+
+		prompt := fmt.Sprintf(`Read and implement the plan below. 
+Execute each step in order. 
+Run quality checks (typecheck, lint, test) after making changes.
+Commit after completing meaningful chunks of work.
+When done, summarize what was implemented.
+
+## Plan:
+%s`, planContent)
+
+		cmd := exec.Command("opencode", "--prompt", prompt, "-m", agentModel)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Dir = m.worktree.Path
+
+		err = cmd.Run()
+		if err != nil {
+			return planExecutionErrorMsg{err}
+		}
+		return planExecutionStartedMsg{}
+	}
+}
+
 func (m *WorktreeModel) executePlanInTmuxCmd() tea.Cmd {
 	return func() tea.Msg {
 		sessionName := m.worktree.Ticket
 
-		// Check if tmux session already exists
 		checkCmd := exec.Command("tmux", "has-session", "-t", sessionName)
 		if err := checkCmd.Run(); err != nil {
-			// Session doesn't exist, create it in detached mode
 			createCmd := exec.Command("tmux", "new-session", "-d", "-s", sessionName, "-c", m.worktree.Path)
 			if err := createCmd.Run(); err != nil {
 				return planExecutionErrorMsg{err}
 			}
 		}
 
-		// Send command to tmux session
-		cmdStr := "opencode run 'use ralph-implementer skill'\n"
+		homeDir, _ := os.UserHomeDir()
+		planPath := fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+		agentModel := m.agentModel
+
+		planContent, err := os.ReadFile(planPath)
+		if err != nil {
+			return planExecutionErrorMsg{err}
+		}
+
+		prompt := fmt.Sprintf(`Read and implement the plan below. 
+Execute each step in order. 
+Run quality checks (typecheck, lint, test) after making changes.
+Commit after completing meaningful chunks of work.
+When done, summarize what was implemented.
+
+## Plan:
+%s`, planContent)
+
+		cmdStr := fmt.Sprintf("opencode --prompt %q -m %s\n", prompt, agentModel)
 		sendCmd := exec.Command("tmux", "send-keys", "-t", sessionName, cmdStr)
 		if err := sendCmd.Run(); err != nil {
 			return planExecutionErrorMsg{err}
@@ -1164,7 +1211,7 @@ func (m WorktreeModel) renderPlanTab() string {
 		return promptStyle.Render("  Generate new plan with AI? (y/n)")
 	}
 	if m.confirmExecute {
-		return promptStyle.Render("  Execute plan with OpenCode in tmux? (y/n)")
+		return promptStyle.Render("  Run agent (direct)? (y/n)")
 	}
 
 	var lines []string
@@ -1194,7 +1241,7 @@ func (m WorktreeModel) renderPlanTab() string {
 		lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
 	}
 	lines = append(lines, "")
-	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan  [x] Execute Plan"))
+	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan  [x] Run Agent (direct)  [X] Run Agent (tmux)"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
@@ -1217,11 +1264,9 @@ func (m WorktreeModel) renderHelp() string {
 	lines = append(lines, "  r:        Refresh status")
 	lines = append(lines, "")
 	lines = append(lines, helpStyle.Render("  Agent Tab:"))
-	lines = append(lines, "  r:        Run Ralph")
 	lines = append(lines, "  o:        Run OpenCode")
 	lines = append(lines, "  s:        Stop agent")
 	lines = append(lines, "  m:        Change model")
-	lines = append(lines, "  i:        Change iterations")
 	lines = append(lines, "  v:        View changes (when done)")
 	lines = append(lines, "  c:        Commit changes (when done)")
 	lines = append(lines, "")
@@ -1234,7 +1279,8 @@ func (m WorktreeModel) renderHelp() string {
 	lines = append(lines, helpStyle.Render("  Plan Tab:"))
 	lines = append(lines, "  c:        Generate plan")
 	lines = append(lines, "  e:        Edit plan")
-	lines = append(lines, "  x:        Execute plan")
+	lines = append(lines, "  x:        Run agent (direct)")
+	lines = append(lines, "  X:        Run agent (tmux)")
 	lines = append(lines, "  j/k:      Scroll")
 	lines = append(lines, "")
 	lines = append(lines, "Press ? or Esc to close help")
