@@ -370,6 +370,13 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Sequence(m.runAgentCmd(), m.scheduleTmuxCheck())
 			}
 			return m, nil
+		case "i":
+			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
+				m.isLoading = true
+				m.loadingMsg = "Starting OpenCode (handoff)..."
+				return m, m.opencodeHandoffCmd()
+			}
+			return m, nil
 		case "m":
 			if m.activeTab == TabAgent && m.agentStatus == types.AgentIdle {
 				m.selectingModel = true
@@ -569,6 +576,18 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return m, m.scheduleTmuxCheck()
 			}
+		}
+		return m, nil
+	case opencodeHandoffFinishedMsg:
+		m.isLoading = false
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.agentStatus = types.AgentDone
+			m.activeTab = TabChanges
+			m.isLoading = true
+			m.loadingMsg = "Loading git status..."
+			return m, m.loadStatusCmd()
 		}
 		return m, nil
 	}
@@ -833,7 +852,7 @@ func (m WorktreeModel) renderAgentTab() string {
 		lines = append(lines, infoTextStyle.Render("  Agent Ready"))
 		lines = append(lines, infoTextStyle.Render(fmt.Sprintf("  Current Model: %s", m.agentModel)))
 		lines = append(lines, "")
-		lines = append(lines, helpStyle.Render("  [o] Run OpenCode  [m] Set Model"))
+		lines = append(lines, helpStyle.Render("  [o] Run (tmux)  [i] Handoff  [m] Set Model"))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
@@ -1096,6 +1115,8 @@ func (m WorktreeModel) editPlan() WorktreeModel {
 
 type planGeneratedMsg struct{}
 
+type OpenCodeHandoffMsg struct{}
+
 func (m *WorktreeModel) generatePlanCmd() tea.Cmd {
 	return func() tea.Msg {
 		homeDir, _ := os.UserHomeDir()
@@ -1206,6 +1227,53 @@ When done, summarize what was implemented.
 	}
 }
 
+type opencodeHandoffFinishedMsg struct {
+	err error
+}
+
+func (m *WorktreeModel) opencodeHandoffCmd() tea.Cmd {
+	homeDir, _ := os.UserHomeDir()
+	planPath := fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+	agentModel := m.agentModel
+
+	var prompt string
+	planContent, err := os.ReadFile(planPath)
+	if err != nil {
+		ticketPath := fmt.Sprintf("%s/.scratch/tickets/%s.md", homeDir, m.worktree.Ticket)
+		ticketContent, err := os.ReadFile(ticketPath)
+		if err != nil {
+			return func() tea.Msg { return opencodeHandoffFinishedMsg{err: err} }
+		}
+		prompt = fmt.Sprintf(`Create a detailed step-by-step implementation plan based on the ticket info below.
+Write the plan to: %s
+Format as markdown with numbered steps. Each step should be specific and actionable.
+Include file paths, functions, and code details where possible.
+DO NOT write any code - only create the plan file.
+
+## Ticket Info:
+%s`, planPath, ticketContent)
+	} else {
+		prompt = fmt.Sprintf(`Read and implement the plan below. 
+Execute each step in order. 
+Run quality checks (typecheck, lint, test) after making changes.
+Commit after completing meaningful chunks of work.
+When done, summarize what was implemented.
+
+## Plan:
+%s`, planContent)
+	}
+
+	cmd := exec.Command("opencode", "--prompt", prompt, "-m", agentModel)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = m.worktree.Path
+
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return opencodeHandoffFinishedMsg{err: err}
+	})
+}
+
 func (m WorktreeModel) renderPlanTab() string {
 	if m.confirmPlan {
 		return promptStyle.Render("  Generate new plan with AI? (y/n)")
@@ -1264,7 +1332,8 @@ func (m WorktreeModel) renderHelp() string {
 	lines = append(lines, "  r:        Refresh status")
 	lines = append(lines, "")
 	lines = append(lines, helpStyle.Render("  Agent Tab:"))
-	lines = append(lines, "  o:        Run OpenCode")
+	lines = append(lines, "  o:        Run OpenCode (tmux)")
+	lines = append(lines, "  i:        Handoff to OpenCode (same terminal)")
 	lines = append(lines, "  s:        Stop agent")
 	lines = append(lines, "  m:        Change model")
 	lines = append(lines, "  v:        View changes (when done)")
