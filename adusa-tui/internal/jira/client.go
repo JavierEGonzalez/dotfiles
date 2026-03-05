@@ -175,9 +175,18 @@ func LoadTicketCache(key string) (*types.TicketInfo, error) {
 	data, err := os.ReadFile(cachePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			txtPath := filepath.Join(cacheDir, fmt.Sprintf("%s.txt", key))
+			data, err = os.ReadFile(txtPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil, nil
+				}
+				return nil, fmt.Errorf("failed to read cache file: %w", err)
+			}
+			cachePath = txtPath
+		} else {
+			return nil, fmt.Errorf("failed to read cache file: %w", err)
 		}
-		return nil, fmt.Errorf("failed to read cache file: %w", err)
 	}
 
 	content := string(data)

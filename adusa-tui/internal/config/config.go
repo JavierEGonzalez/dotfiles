@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -143,7 +144,11 @@ func GetJiraDomain() string {
 	if AppConfig.Jira.Domain != "" {
 		return AppConfig.Jira.Domain
 	}
-	return "" // User must set their company domain (e.g., "mycompany")
+	domainPath := filepath.Join(GetScratchDir(), "jira.domain")
+	if data, err := os.ReadFile(domainPath); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+	return ""
 }
 
 func GetAgentModel() string {
