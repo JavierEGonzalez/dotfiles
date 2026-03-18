@@ -151,6 +151,4 @@ esac
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
-# Open in tmux popup if on tmux, otherwise use --height mode
-export FZF_DEFAULT_OPTS='--height 80% --width 80% --tmux --border top'
 eval "$(zoxide init zsh)"

@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/javiergonzalez/adusa-tui/internal/config"
 	"github.com/javiergonzalez/adusa-tui/internal/git"
+	"github.com/javiergonzalez/adusa-tui/internal/jira"
 )
 
 var (
@@ -24,27 +25,31 @@ var (
 )
 
 type CreateWorktreeModel struct {
-	step        int
-	repoInput   textinput.Model
-	ticketInput textinput.Model
-	branchInput textinput.Model
-	descInput   textinput.Model
-	repo        string
-	repoPath    string
-	ticket      string
-	branchType  string
-	description string
-	err         error
-	success     bool
+	step               int
+	repoInput          textinput.Model
+	ticketInput        textinput.Model
+	branchInput        textinput.Model
+	descInput          textinput.Model
+	repo               string
+	repoPath           string
+	worktreeDir        string
+	ticket             string
+	branchType         string
+	description        string
+	descriptionDefault string
+	err                error
+	success            bool
 }
 
 func NewCreateWorktreeModel() CreateWorktreeModel {
 	repos := config.AppConfig.Repos
 	defaultRepo := ""
 	defaultPath := ""
+	defaultWorktreeDir := ""
 	if len(repos) > 0 {
 		defaultRepo = repos[0].Name
 		defaultPath = repos[0].Path
+		defaultWorktreeDir = repos[0].GetWorktreeDir()
 	}
 
 	repo := textinput.New()
@@ -71,6 +76,7 @@ func NewCreateWorktreeModel() CreateWorktreeModel {
 		descInput:   desc,
 		repo:        defaultRepo,
 		repoPath:    defaultPath,
+		worktreeDir: defaultWorktreeDir,
 	}
 }
 
@@ -130,6 +136,7 @@ func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 				if r.Name == repoInput {
 					m.repo = r.Name
 					m.repoPath = r.Path
+					m.worktreeDir = r.GetWorktreeDir()
 					found = true
 					break
 				}
@@ -154,6 +161,16 @@ func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.ticket = ticket
+		m.descriptionDefault = ""
+		if cached, err := jira.LoadTicketCache(ticket); err == nil && cached != nil {
+			m.descriptionDefault = strings.TrimSpace(cached.Summary)
+		} else if fetched, err := jira.FetchTicket(ticket); err == nil && fetched != nil {
+			m.descriptionDefault = strings.TrimSpace(fetched.Summary)
+			_ = jira.SaveTicketCache(fetched)
+		}
+		if m.descriptionDefault != "" {
+			m.descInput.Placeholder = m.descriptionDefault
+		}
 		m.step = 2
 		m.branchInput.Focus()
 		return m, nil
@@ -173,6 +190,9 @@ func (m CreateWorktreeModel) handleEnter() (tea.Model, tea.Cmd) {
 		return m, nil
 	case 3:
 		m.description = strings.TrimSpace(m.descInput.Value())
+		if m.description == "" {
+			m.description = strings.TrimSpace(m.descriptionDefault)
+		}
 		m.err = m.createWorktree()
 		if m.err == nil {
 			m.success = true
@@ -189,8 +209,8 @@ func (m CreateWorktreeModel) createWorktree() error {
 
 func (m CreateWorktreeModel) View() string {
 	if m.success {
-		dirName := strings.TrimPrefix(m.ticket, "CXPVSP-")
-		previewPath := fmt.Sprintf("%s/%s", m.repoPath, dirName)
+		dirName := m.ticket
+		previewPath := fmt.Sprintf("%s/%s", m.worktreeDir, dirName)
 		return fmt.Sprintf("\n  %s\n\n  Worktree created at: %s\n\n  Press Enter to continue...",
 			successStyle.Render("✓ Worktree created successfully"),
 			previewPath)
@@ -233,20 +253,26 @@ func (m CreateWorktreeModel) View() string {
 		lines = append(lines, "")
 		lines = append(lines, labelStyle.Render("Press Enter to continue, Esc to cancel"))
 	case 3:
-		dirName := strings.TrimPrefix(m.ticket, "CXPVSP-")
-		previewPath := fmt.Sprintf("%s/%s", m.repoPath, dirName)
+		dirName := m.ticket
+		previewPath := fmt.Sprintf("%s/%s", m.worktreeDir, dirName)
 		branchTypeName := map[string]string{"f": "feature", "b": "bugfix", "h": "hotfix"}[m.branchType]
-		desc := m.description
+		desc := strings.TrimSpace(m.descInput.Value())
 		if desc == "" {
-			desc = dirName
+			desc = strings.TrimSpace(m.descriptionDefault)
 		}
-		branchName := fmt.Sprintf("%s/%s-%s", branchTypeName, dirName, desc)
+		slug := git.SlugifyDescription(desc)
+		branchName := ""
+		if slug == "" {
+			branchName = fmt.Sprintf("%s/%s", branchTypeName, dirName)
+		} else {
+			branchName = fmt.Sprintf("%s/%s-%s", branchTypeName, dirName, slug)
+		}
 
 		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Repo"), m.repo))
 		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Ticket"), m.ticket))
 		lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Branch Type"), branchTypeName))
-		if m.description != "" {
-			lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Description"), m.description))
+		if desc != "" {
+			lines = append(lines, fmt.Sprintf("  %s: %s", labelStyle.Render("Description"), desc))
 		}
 		lines = append(lines, "")
 		lines = append(lines, labelStyle.Render(fmt.Sprintf("Preview: Worktree: %s", previewPath)))

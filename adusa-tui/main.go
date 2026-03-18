@@ -130,6 +130,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.resizeViewport()
 		}
+		innerW, _ := m.innerSize()
+		m.worktreesScreen.SetWidth(innerW)
 		cmd := m.processInit()
 		if cmd != nil {
 			cmds = append(cmds, cmd)

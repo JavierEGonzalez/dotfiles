@@ -27,6 +27,7 @@ type WorktreesModel struct {
 	worktrees   []types.Worktree
 	dirtyStatus map[string]bool
 	selectedIdx int
+	width       int
 }
 
 func NewWorktreesModel() WorktreesModel {
@@ -60,8 +61,15 @@ func (m WorktreesModel) Init() tea.Cmd {
 	return nil
 }
 
+func (m *WorktreesModel) SetWidth(w int) {
+	m.width = w
+}
+
 func (m WorktreesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
@@ -110,7 +118,18 @@ func (m WorktreesModel) View() string {
 	var rows []string
 	rows = append(rows, titleStyle.Render("All Worktrees"))
 	rows = append(rows, "")
-	rows = append(rows, fmt.Sprintf("  %-10s %-30s %s", "TICKET", "BRANCH", "STATUS"))
+
+	// Fixed columns: prefix(2) + ticket(12) + status(8)
+	// Branch gets the remaining width
+	ticketWidth := 12
+	statusWidth := 8
+	fixedWidth := 2 + ticketWidth + statusWidth + 2 // 2 for spacing between columns
+	branchWidth := m.width - fixedWidth
+	if branchWidth < 20 {
+		branchWidth = 20
+	}
+
+	rows = append(rows, fmt.Sprintf("  %-*s %-*s %s", ticketWidth, "TICKET", branchWidth, "BRANCH", "STATUS"))
 
 	for i, wt := range m.worktrees {
 		ticketStr := wt.Ticket
@@ -118,24 +137,29 @@ func (m WorktreesModel) View() string {
 			ticketStr = "(none)"
 		}
 		branchStr := wt.Branch
-		if len(branchStr) > 30 {
-			branchStr = branchStr[:27] + "..."
+		statusLabel := "clean"
+		isDirty := m.dirtyStatus[wt.Path]
+		if isDirty {
+			statusLabel = "dirty"
 		}
 
-		statusStr := statusClean.Render("clean")
-		if m.dirtyStatus[wt.Path] {
-			statusStr = statusDirty.Render("dirty")
-		}
+		// Pad plain text first, then apply styling so ANSI codes don't break alignment
+		paddedTicket := fmt.Sprintf("%-*s", ticketWidth, ticketStr)
+		paddedBranch := fmt.Sprintf("%-*s", branchWidth, branchStr)
 
 		prefix := "  "
 		if i == selected {
 			prefix = "► "
-			ticketStr = selectedStyle.Render(ticketStr)
-			branchStr = selectedStyle.Render(branchStr)
-			statusStr = selectedStyle.Render(statusStr)
+			paddedTicket = selectedStyle.Render(paddedTicket)
+			paddedBranch = selectedStyle.Render(paddedBranch)
+			statusLabel = selectedStyle.Render(statusLabel)
+		} else if isDirty {
+			statusLabel = statusDirty.Render(statusLabel)
+		} else {
+			statusLabel = statusClean.Render(statusLabel)
 		}
 
-		rows = append(rows, fmt.Sprintf("%s%-10s %-30s %s", prefix, ticketStr, branchStr, statusStr))
+		rows = append(rows, fmt.Sprintf("%s%s %s %s", prefix, paddedTicket, paddedBranch, statusLabel))
 	}
 
 	rows = append(rows, "")

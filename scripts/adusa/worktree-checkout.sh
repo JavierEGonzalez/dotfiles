@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DEFAULT_BASE="~/workspace/prism3"
-SECRETS_SOURCE="$HOME/.scratch/.env.secrets"
+SECRETS_SOURCE="${SECRETS_SOURCE:-$HOME/.scratch/.env.secrets}"
 
 get_ticket() {
   if [[ -n "${1:-}" ]]; then

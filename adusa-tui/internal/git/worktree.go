@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/javiergonzalez/adusa-tui/internal/config"
 	"github.com/javiergonzalez/adusa-tui/internal/types"
@@ -92,7 +93,7 @@ func listGitWorktrees(repoPath string) ([]GitWorktree, error) {
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "worktree") {
+		if !strings.HasPrefix(line, "worktree ") {
 			continue
 		}
 
@@ -105,16 +106,15 @@ func listGitWorktrees(repoPath string) ([]GitWorktree, error) {
 		branch := "unknown"
 		createdAt := time.Now()
 
-		// Read the next line to get branch info
-		if scanner.Scan() {
+		// Read remaining lines of this worktree block until blank line
+		for scanner.Scan() {
 			nextLine := scanner.Text()
-			if strings.HasPrefix(nextLine, "branch") {
-				parts := strings.Split(nextLine, " ")
-				if len(parts) >= 2 {
-					// Extract branch name from reference path (e.g., "refs/heads/feature/123")
-					branchRef := parts[1]
-					branch = strings.TrimPrefix(branchRef, "refs/heads/")
-				}
+			if nextLine == "" {
+				break
+			}
+			if strings.HasPrefix(nextLine, "branch ") {
+				branchRef := strings.TrimPrefix(nextLine, "branch ")
+				branch = strings.TrimPrefix(branchRef, "refs/heads/")
 			}
 		}
 
@@ -168,6 +168,19 @@ func listWorktreesByDirectory(repoPath string) ([]GitWorktree, error) {
 	return worktrees, nil
 }
 
+func ResolveRepoRoot(repoPath string) (string, error) {
+	cmd := exec.Command("git", "-C", repoPath, "rev-parse", "--show-toplevel")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve repo root from %s: %w, output: %s", repoPath, err, string(out))
+	}
+	root := strings.TrimSpace(string(out))
+	if root == "" {
+		return "", fmt.Errorf("failed to resolve repo root from %s: empty result", repoPath)
+	}
+	return root, nil
+}
+
 // getBranchFromPath tries to determine the current branch in a directory
 func getBranchFromPath(path string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -207,14 +220,23 @@ func parseWorktreeInfo(content, dirName, basePath string) types.Worktree {
 }
 
 func CreateWorktree(ticket, branchType, description, repoPath string) (*types.Worktree, error) {
-	repo := config.GetRepoByPath(repoPath)
-	repoName := repo.Name
-	if repoName == "" {
-		repoName = filepath.Base(repoPath)
+	repoRoot, err := ResolveRepoRoot(repoPath)
+	if err != nil {
+		return nil, err
 	}
 
-	dirName := strings.TrimPrefix(ticket, "CXPVSP-")
-	worktreePath := filepath.Join(repoPath, dirName)
+	repo := config.GetRepoByPath(repoPath)
+	if repo == nil {
+		return nil, fmt.Errorf("repo not found in config for path: %s", repoPath)
+	}
+	repoName := repo.Name
+	if repoName == "" {
+		repoName = filepath.Base(repoRoot)
+	}
+
+	dirName := ticket
+	worktreeBase := repo.GetWorktreeDir()
+	worktreePath := filepath.Join(worktreeBase, dirName)
 
 	prefix := map[string]string{
 		"f": "feature",
@@ -222,23 +244,29 @@ func CreateWorktree(ticket, branchType, description, repoPath string) (*types.Wo
 		"h": "hotfix",
 	}[branchType]
 
-	branchDesc := description
-	if branchDesc == "" {
-		branchDesc = dirName
+	branch := ""
+	if description == "" {
+		branch = fmt.Sprintf("%s/%s", prefix, dirName)
+	} else {
+		slug := SlugifyDescription(description)
+		if slug == "" {
+			branch = fmt.Sprintf("%s/%s", prefix, dirName)
+		} else {
+			branch = fmt.Sprintf("%s/%s-%s", prefix, dirName, slug)
+		}
 	}
-	branch := fmt.Sprintf("%s/%s-%s", prefix, dirName, branchDesc)
 
-	if err := os.MkdirAll(repoPath, 0755); err != nil {
+	if err := os.MkdirAll(worktreeBase, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create worktree base: %w", err)
 	}
 
 	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath)
-	cmd.Dir = repoPath
+	cmd.Dir = repoRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("failed to create worktree: %w, output: %s", err, string(out))
 	}
 
-	envSecretsSrc := filepath.Join(repoPath, ".env.secrets")
+	envSecretsSrc := filepath.Join(repoRoot, ".env.secrets")
 	envSecretsDst := filepath.Join(worktreePath, ".env.secrets")
 	if _, err := os.Stat(envSecretsSrc); err == nil {
 		if err := copyFile(envSecretsSrc, envSecretsDst); err != nil {
@@ -280,7 +308,17 @@ func DeleteWorktree(path string) error {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
+	// Find the main repo root by resolving the common git dir from the worktree.
+	// This is needed because `git worktree remove` must run from within the repo.
+	gitDirCmd := exec.Command("git", "-C", wtPath, "rev-parse", "--git-common-dir")
+	gitDirOut, err := gitDirCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to find repo for worktree: %w, output: %s", err, string(gitDirOut))
+	}
+	repoRoot := filepath.Dir(strings.TrimSpace(string(gitDirOut)))
+
 	cmd := exec.Command("git", "worktree", "remove", wtPath)
+	cmd.Dir = repoRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to remove git worktree: %w, output: %s", err, string(out))
 	}
@@ -290,6 +328,31 @@ func DeleteWorktree(path string) error {
 	}
 
 	return nil
+}
+
+func SlugifyDescription(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	prevDash := false
+	for _, r := range trimmed {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			b.WriteRune(unicode.ToLower(r))
+			prevDash = false
+			continue
+		}
+		if prevDash {
+			continue
+		}
+		b.WriteByte('-')
+		prevDash = true
+	}
+
+	result := strings.Trim(b.String(), "-")
+	return result
 }
 
 func GetStatus(path string) ([]FileStatus, error) {

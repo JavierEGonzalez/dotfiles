@@ -66,3 +66,5 @@ local triggers = {"."}
 --  end
 --})
 
+vim.api.nvim_set_hl(0, 'Folded', { guibg = '#5B5B5C' })
+

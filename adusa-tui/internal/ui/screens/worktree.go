@@ -226,6 +226,24 @@ func (m *WorktreeModel) loadDiffCmd() tea.Cmd {
 	}
 }
 
+// loadForActiveTab returns the appropriate load command for the current tab.
+// This ensures ticket/plan data is loaded when navigating via h/l keys.
+func (m *WorktreeModel) loadForActiveTab() tea.Cmd {
+	switch m.activeTab {
+	case TabTicket:
+		if m.ticket == nil {
+			m.isLoading = true
+			m.loadingMsg = "Loading ticket..."
+			return m.loadTicketCmd()
+		}
+	case TabPlan:
+		if !m.planExists {
+			*m = m.loadPlan()
+		}
+	}
+	return nil
+}
+
 type ticketLoadedMsg struct {
 	ticket *types.TicketInfo
 	err    error
@@ -283,8 +301,7 @@ func (m *WorktreeModel) appendToTicketNotes() {
 }
 
 func (m *WorktreeModel) getTicketCachePath() string {
-	homeDir, _ := os.UserHomeDir()
-	return fmt.Sprintf("%s/.scratch/tickets/%s.md", homeDir, m.worktree.Ticket)
+	return config.TicketFilePath(m.worktree.Ticket)
 }
 
 func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -339,10 +356,10 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "h", "left":
 			m.activeTab = (m.activeTab - 1 + TabCount) % TabCount
-			return m, nil
+			return m, m.loadForActiveTab()
 		case "l", "right":
 			m.activeTab = (m.activeTab + 1) % TabCount
-			return m, nil
+			return m, m.loadForActiveTab()
 		case "q", "esc":
 			if m.activeTab == TabPlan && m.confirmPlan {
 				m.confirmPlan = false
@@ -791,9 +808,10 @@ func (m *WorktreeModel) runAgentCmd() tea.Cmd {
 
 		var cmdStr string
 		planPath := m.getPlanPath()
+		ticketPath := config.TicketFilePath(m.worktree.Ticket)
 		_, err := os.ReadFile(planPath)
 		if err != nil {
-			cmdStr = fmt.Sprintf("opencode --prompt 'Create a detailed implementation plan for this ticket. First read the ticket info from ~/.scratch/tickets/%s.md, then create a plan file at %s. Do NOT write any code yet, only create the plan.' -m %s\n", m.worktree.Ticket, planPath, m.agentModel)
+			cmdStr = fmt.Sprintf("opencode --prompt 'Create a detailed implementation plan for this ticket. First read the ticket info from %s, then create a plan file at %s. Do NOT write any code yet, only create the plan.' -m %s\n", ticketPath, planPath, m.agentModel)
 		} else {
 			cmdStr = fmt.Sprintf("opencode --prompt 'Read and implement the plan from %s. Execute each step in order. Run quality checks (typecheck, lint, test) after making changes. Commit after completing meaningful chunks of work. When done, summarize what was implemented.' -m %s\n", planPath, m.agentModel)
 		}
@@ -1082,8 +1100,7 @@ func (m WorktreeModel) renderTicketTab() string {
 type WorktreeBackMsg struct{}
 
 func (m WorktreeModel) getPlanPath() string {
-	homeDir, _ := os.UserHomeDir()
-	return fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+	return config.PlanFilePath(m.worktree.Ticket)
 }
 
 func (m WorktreeModel) loadPlan() WorktreeModel {
@@ -1119,8 +1136,7 @@ type OpenCodeHandoffMsg struct{}
 
 func (m *WorktreeModel) generatePlanCmd() tea.Cmd {
 	return func() tea.Msg {
-		homeDir, _ := os.UserHomeDir()
-		ticketPath := fmt.Sprintf("%s/.scratch/tickets/%s.md", homeDir, m.worktree.Ticket)
+		ticketPath := config.TicketFilePath(m.worktree.Ticket)
 		planPath := m.getPlanPath()
 
 		ticketContent, err := os.ReadFile(ticketPath)
@@ -1155,8 +1171,7 @@ type planExecutionErrorMsg struct{ err error }
 
 func (m *WorktreeModel) executePlanCmd() tea.Cmd {
 	return func() tea.Msg {
-		homeDir, _ := os.UserHomeDir()
-		planPath := fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+		planPath := config.PlanFilePath(m.worktree.Ticket)
 		agentModel := m.agentModel
 
 		planContent, err := os.ReadFile(planPath)
@@ -1199,8 +1214,7 @@ func (m *WorktreeModel) executePlanInTmuxCmd() tea.Cmd {
 			}
 		}
 
-		homeDir, _ := os.UserHomeDir()
-		planPath := fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+		planPath := config.PlanFilePath(m.worktree.Ticket)
 		agentModel := m.agentModel
 
 		planContent, err := os.ReadFile(planPath)
@@ -1232,14 +1246,13 @@ type opencodeHandoffFinishedMsg struct {
 }
 
 func (m *WorktreeModel) opencodeHandoffCmd() tea.Cmd {
-	homeDir, _ := os.UserHomeDir()
-	planPath := fmt.Sprintf("%s/.scratch/tickets/%s_plan.md", homeDir, m.worktree.Ticket)
+	planPath := config.PlanFilePath(m.worktree.Ticket)
 	agentModel := m.agentModel
 
 	var prompt string
 	planContent, err := os.ReadFile(planPath)
 	if err != nil {
-		ticketPath := fmt.Sprintf("%s/.scratch/tickets/%s.md", homeDir, m.worktree.Ticket)
+		ticketPath := config.TicketFilePath(m.worktree.Ticket)
 		ticketContent, err := os.ReadFile(ticketPath)
 		if err != nil {
 			return func() tea.Msg { return opencodeHandoffFinishedMsg{err: err} }

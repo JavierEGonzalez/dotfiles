@@ -18,7 +18,17 @@ var (
 type Repo struct {
 	Name          string `toml:"name"`
 	Path          string `toml:"path"`
+	WorktreeDir   string `toml:"worktree-dir"`
 	DefaultBranch string `toml:"default-branch"`
+}
+
+// GetWorktreeDir returns the directory where worktrees are created.
+// Falls back to the parent of Path if not explicitly set.
+func (r Repo) GetWorktreeDir() string {
+	if r.WorktreeDir != "" {
+		return r.WorktreeDir
+	}
+	return filepath.Dir(r.Path)
 }
 
 type Jira struct {
@@ -61,7 +71,7 @@ func loadConfig() Config {
 		ScratchDir: "",
 		TicketsDir: "",
 		Repos: []Repo{
-			{Name: "prism3", Path: filepath.Join(HomeDir, "workspace", "prism3"), DefaultBranch: "main"},
+			{Name: "prism3", Path: filepath.Join(HomeDir, "workspace", "prism3", "nuclei"), WorktreeDir: filepath.Join(HomeDir, "workspace", "prism3"), DefaultBranch: "main"},
 		},
 		Jira: Jira{
 			EmailPath: "",

@@ -1,5 +1,8 @@
 export script_dir=$HOME/.scratch
 
+# fzf configuration (--width was removed in fzf 0.67.0; use --tmux center,WIDTH% instead)
+export FZF_DEFAULT_OPTS='--height 80% --tmux center,80% --border top'
+
 # needs fzf enabled
 vf() {
   nvim $(fzf)
