@@ -4,6 +4,75 @@ set -euo pipefail
 DEFAULT_BASE="~/workspace/prism3"
 SECRETS_SOURCE="${SECRETS_SOURCE:-$HOME/.scratch/.env.secrets}"
 
+run_setup() {
+  local worktree_dir=$1
+  local ticket=${2:-}
+
+  echo "Running setup in $worktree_dir"
+
+  if [[ ! -d "$worktree_dir" ]]; then
+    echo "Error: Directory $worktree_dir does not exist"
+    exit 1
+  fi
+
+  if [[ -n "$ticket" && ! -f "$worktree_dir/mise.toml" ]]; then
+    cat > "$worktree_dir/mise.toml" << EOF
+[env]
+TICKET = "$ticket"
+EOF
+    echo "Created mise.toml with TICKET=$ticket"
+  fi
+
+  if [[ -f "$SECRETS_SOURCE" ]]; then
+    local secrets_dest="$worktree_dir/apps/prism/.env.secrets"
+    mkdir -p "$(dirname "$secrets_dest")"
+    cp "$SECRETS_SOURCE" "$secrets_dest"
+    echo "Copied secrets to $secrets_dest"
+  else
+    echo "Warning: Secrets file not found at $SECRETS_SOURCE"
+  fi
+
+  local env_src="$worktree_dir/apps/prism/.env"
+  local root_dir
+  root_dir=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+  local template_env="$root_dir/apps/prism/.env"
+  if [[ -f "$template_env" ]]; then
+    cp "$template_env" "$env_src"
+    echo "Copied .env from $template_env"
+  elif [[ -f "$env_src" ]]; then
+    echo "Found existing .env at $env_src"
+  else
+    echo "Warning: No .env found at $template_env or $env_src"
+  fi
+
+  cd "$worktree_dir"
+  mise trust 2>/dev/null || true
+  echo "Ran mise trust"
+
+  echo "Running pnpm install..."
+  pnpm install
+}
+
+detect_worktree_info() {
+  local worktree_dir
+  worktree_dir=$(git worktree list --porcelain | awk '/^worktree / {print $2}')
+  
+  if [[ -z "$worktree_dir" ]]; then
+    echo "Error: Not in a git worktree"
+    exit 1
+  fi
+
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+  local ticket=""
+  if [[ -n "$branch" ]]; then
+    ticket=$(echo "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
+  fi
+
+  echo "$worktree_dir|$ticket|$branch"
+}
+
 get_ticket() {
   if [[ -n "${1:-}" ]]; then
     echo "$1"
@@ -91,6 +160,20 @@ create_branch() {
 }
 
 main() {
+  if [[ "${1:-}" = "--run-setup" ]]; then
+    shift
+    local worktree_dir ticket branch
+    if [[ -z "${1:-}" ]]; then
+      IFS='|' read -r worktree_dir ticket branch <<< "$(detect_worktree_info)"
+      echo "Detected worktree: $worktree_dir (branch: $branch, ticket: ${ticket:-none})"
+    else
+      worktree_dir="${1}"
+      ticket="${2:-}"
+    fi
+    run_setup "$worktree_dir" "$ticket"
+    exit 0
+  fi
+
   local ticket base_dir worktree_dir branch
 
   ticket=$(get_ticket "${1:-}")
@@ -163,38 +246,10 @@ main() {
     git worktree add -b "$branch" "$worktree_dir" "origin/$branch"
   fi
 
-  if [[ ! -f "$SECRETS_SOURCE" ]]; then
-    echo "Error: Secrets file not found at $SECRETS_SOURCE"
-    exit 1
-  fi
-
-  local secrets_dest="$worktree_dir/apps/prism/.env.secrets"
-  mkdir -p "$(dirname "$secrets_dest")"
-  cp "$SECRETS_SOURCE" "$secrets_dest"
-  echo "Copied secrets to $secrets_dest"
-
-  local env_src="$base_dir/apps/prism/.env"
-  local env_dest="$worktree_dir/apps/prism/.env"
-  if [[ -f "$env_src" ]]; then
-    cp "$env_src" "$env_dest"
-    echo "Copied .env to $env_dest"
-  else
-    echo "Warning: .env not found at $env_src"
-  fi
-
-  cat > "$worktree_dir/mise.toml" << EOF
-[env]
-TICKET = "$ticket"
-EOF
-  echo "Created mise.toml with TICKET=$ticket"
-
-  cd "$worktree_dir"
-  mise trust
-  echo "Ran mise trust"
+  run_setup "$worktree_dir" "$ticket"
 
   echo "Creating tmux session '$ticket' and running pnpm install..."
   tmux new-session -d -s "$ticket" -c "$worktree_dir"
-  tmux send-keys -t "$ticket" "pnpm install" C-m
 
   cd "$worktree_dir"
   tms bookmark

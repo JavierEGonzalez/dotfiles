@@ -489,6 +489,13 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.planScroll--
 			}
 			return m, nil
+		case "u":
+			if m.activeTab == TabPlan && m.planExists {
+				m.isLoading = true
+				m.loadingMsg = "Opening OpenCode to update plan..."
+				return m, m.updatePlanCmd()
+			}
+			return m, nil
 		case "x":
 			if m.activeTab == TabPlan && m.planExists {
 				m.confirmExecute = true
@@ -541,6 +548,13 @@ func (m WorktreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case planGeneratedMsg:
 		m.isLoading = false
 		m.confirmPlan = false
+		m = m.loadPlan()
+		return m, nil
+	case updatePlanFinishedMsg:
+		m.isLoading = false
+		if msg.err != nil {
+			m.err = msg.err
+		}
 		m = m.loadPlan()
 		return m, nil
 	case statusLoadedMsg:
@@ -1130,6 +1144,28 @@ func (m WorktreeModel) editPlan() WorktreeModel {
 	return m.loadPlan()
 }
 
+type updatePlanFinishedMsg struct {
+	err error
+}
+
+func (m *WorktreeModel) updatePlanCmd() tea.Cmd {
+	planPath := m.getPlanPath()
+
+	prompt := fmt.Sprintf(`I want to update the plan at: %s
+
+Read the plan and wait for my instructions on what to change.`, planPath)
+
+	cmd := exec.Command("opencode", "--prompt", prompt, "-m", m.agentModel)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = m.worktree.Path
+
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return updatePlanFinishedMsg{err: err}
+	})
+}
+
 type planGeneratedMsg struct{}
 
 type OpenCodeHandoffMsg struct{}
@@ -1322,7 +1358,7 @@ func (m WorktreeModel) renderPlanTab() string {
 		lines = append(lines, ticketLabelStyle.Render("  ─────────────────────────────────────────────────"))
 	}
 	lines = append(lines, "")
-	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan  [x] Run Agent (direct)  [X] Run Agent (tmux)"))
+	lines = append(lines, helpStyle.Render("  [c] Generate Plan  [e] Edit Plan  [u] Update Plan (chat)  [x] Run Agent (direct)  [X] Run Agent (tmux)"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
@@ -1361,6 +1397,7 @@ func (m WorktreeModel) renderHelp() string {
 	lines = append(lines, helpStyle.Render("  Plan Tab:"))
 	lines = append(lines, "  c:        Generate plan")
 	lines = append(lines, "  e:        Edit plan")
+	lines = append(lines, "  u:        Update plan (OpenCode chat)")
 	lines = append(lines, "  x:        Run agent (direct)")
 	lines = append(lines, "  X:        Run agent (tmux)")
 	lines = append(lines, "  j/k:      Scroll")
