@@ -42,11 +42,11 @@ alias pnd="pnpm -F prism dev"
 alias gtn='cd ~/workspace/nuclei/'
 alias gtncl='cd ~/workspace/nuclei/'
 
-alias gtcl='cd ~/workspace/client/'
-alias gtsho='cd ~/workspace/client/doc/alaska/shop/'
+alias gtcl='cd ~/workspace/pdl-web-frontend-prism-client/'
+alias gtsho='cd ~/workspace/pdl-web-frontend-prism-client/doc/alaska/shop/'
 
-alias stcl='cd ~/workspace/client/ && sh start.sh 9443'
-alias stsho='cd ~/workspace/client/doc/alaska/shop/ && yarn run dev'
+alias stcl='gtcl && sh start.sh 9443'
+alias stsho='gtsho && yarn run dev'
 
 alias vncl="cd ~/workspace/nuclei && nvim"
 alias refine="nv $script_dir/refinement/tickets.txt"
