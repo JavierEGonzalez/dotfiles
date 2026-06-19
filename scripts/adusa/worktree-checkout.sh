@@ -4,11 +4,17 @@ set -euo pipefail
 DEFAULT_BASE="~/workspace/prism3"
 
 get_ticket() {
+  local input
   if [[ -n "${1:-}" ]]; then
-    echo "$1"
+    input="$1"
   else
-    read -p "Enter ticket number: " ticket
-    echo "$ticket"
+    read -p "Enter ticket number: " input
+  fi
+
+  if [[ "$input" =~ ^[0-9]+$ ]]; then
+    echo "CXPVSP-${input}"
+  else
+    echo "$input"
   fi
 }
 
@@ -162,12 +168,7 @@ main() {
     git worktree add -b "$branch" "$worktree_dir" "origin/$branch"
   fi
 
-  if [[ ! -f "$SECRETS_SOURCE" ]]; then
-    echo "Error: Secrets file not found at $SECRETS_SOURCE"
-    exit 1
-  fi
-
-  local env_src="$base_dir/apps/prism/.env"
+  local env_src="$base_dir/nuclei/apps/prism/.env"
   local env_dest="$worktree_dir/apps/prism/.env"
   if [[ -f "$env_src" ]]; then
     cp "$env_src" "$env_dest"
@@ -176,7 +177,7 @@ main() {
     echo "Warning: .env not found at $env_src"
   fi
 
-  local secrets_src="$base_dir/apps/prism/.env.secrets"
+  local secrets_src="$base_dir/nuclei/apps/prism/.env.secrets"
   local secrets_dest="$worktree_dir/apps/prism/.env.secrets"
   if [[ -f "$secrets_src" ]]; then
     cp "$secrets_src" "$secrets_dest"
@@ -195,14 +196,15 @@ EOF
   mise trust
   echo "Ran mise trust"
 
-  echo "Creating tmux session '$ticket' and running pnpm install..."
+  echo "\n\nCreating tmux session '$ticket' and running pnpm install... \n\n"
   tmux new-session -d -s "$ticket" -c "$worktree_dir"
-  tmux send-keys -t "$ticket" "pnpm install" C-m
 
   cd "$worktree_dir"
   tms bookmark
 
-  echo "Done! Tmux session '$ticket' created at $worktree_dir"
+  tmux send-keys -t "$ticket" "mise run setup" C-m
+
+  "Done! Tmux session '$ticket' created at $worktree_dir running setup script in mise"
 }
 
 main "$@"
