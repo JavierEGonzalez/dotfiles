@@ -91,7 +91,24 @@ create_branch() {
     branch_name="$branch_name-$(echo "$description" | sed 's/ /-/g')"
   fi
 
-  git branch "$branch_name"
+  local current_branch
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  read -p "Branch off [m]ain or [c]urrent branch ($current_branch)? [m/c] " base_choice
+
+  local base_ref
+  case "$base_choice" in
+    c|C)
+      base_ref="$current_branch"
+      echo "Using current branch: $current_branch"
+      ;;
+    *)
+      echo "Fetching origin/main..."
+      git fetch origin main
+      base_ref="origin/main"
+      ;;
+  esac
+
+  git branch "$branch_name" "$base_ref"
   echo "$branch_name"
 }
 
