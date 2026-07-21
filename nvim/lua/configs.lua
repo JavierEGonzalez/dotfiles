@@ -33,6 +33,27 @@ map('v', '<leader>y', '\"+y', { noremap = true, silent = false })
 map('n', '<leader>Y', '\"+y', { noremap = true, silent = false })
 map('v', '<leader>Y', '\"+y', { noremap = true, silent = false })
 
+-- [l]ine [y]ank: copy relative file path + selected line range to clipboard
+-- Format: path/to/file.ts L51:55
+vim.keymap.set('v', '<leader>ly', function()
+  -- Exit visual mode first so '< and '> marks are committed
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'x', false)
+  local start_line = vim.api.nvim_buf_get_mark(0, '<')[1]
+  local end_line = vim.api.nvim_buf_get_mark(0, '>')[1]
+  local rel_path = vim.fn.expand('%')
+  local result = rel_path .. ' L' .. start_line .. ':' .. end_line
+  vim.fn.setreg('+', result)
+  vim.api.nvim_echo({{ result .. ' copied', 'Normal' }}, false, {})
+end, { noremap = true, silent = true, desc = 'Copy file:lines ref to clipboard' })
+
+vim.keymap.set('n', '<leader>ly', function()
+  local line = vim.fn.line('.')
+  local rel_path = vim.fn.expand('%')
+  local result = rel_path .. ' L' .. line .. ':' .. line
+  vim.fn.setreg('+', result)
+  vim.api.nvim_echo({{ result .. ' copied', 'Normal' }}, false, {})
+end, { noremap = true, silent = true, desc = 'Copy file:line ref to clipboard' })
+
 map('n', '<M-j>', ':Treewalker Down<CR>', { noremap = true })
 map('n', '<M-k>', ':Treewalker Up<CR>', { noremap = true })
 map('n', '<M-h>', ':Treewalker Left<CR>', { noremap = true })

@@ -99,16 +99,16 @@ create_branch() {
   case "$base_choice" in
     c|C)
       base_ref="$current_branch"
-      echo "Using current branch: $current_branch"
+      echo "Using current branch: $current_branch" >&2
       ;;
     *)
-      echo "Fetching origin/main..."
-      git fetch origin main
+      echo "Fetching origin/main..." >&2
+      git fetch origin main >&2
       base_ref="origin/main"
       ;;
   esac
 
-  git branch "$branch_name" "$base_ref"
+  git branch "$branch_name" "$base_ref" >&2
   echo "$branch_name"
 }
 
@@ -201,6 +201,15 @@ main() {
     echo "Copied .env.secrets to $secrets_dest"
   else
     echo "Warning: .env.secrets not found at $secrets_src"
+  fi
+
+  local turbo_src="$base_dir/nuclei/.turbo"
+  local turbo_dest="$worktree_dir/.turbo"
+  if [[ -d "$turbo_src" ]]; then
+    cp -r "$turbo_src" "$turbo_dest"
+    echo "Copied .turbo to $turbo_dest"
+  else
+    echo "Warning: .turbo not found at $turbo_src"
   fi
 
   cat > "$worktree_dir/mise.toml" << EOF
