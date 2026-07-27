@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "skills": {
+    "vueuse-functions": {
+      "source": "vueuse/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vueuse/skills.git",
+      "skillPath": "skills/vueuse-functions/SKILL.md",
+      "skillFolderHash": "6e179467fae86aa99f3e1fefbd9b5a8274071e2a",
+      "pluginName": "vueuse-functions",
+      "installedAt": "2026-06-29T15:52:22.103Z",
+      "updatedAt": "2026-06-29T15:52:22.103Z"
+    }
+  },
+  "dismissed": {
+    "findSkillsPrompt": true
+  },
+  "lastSelectedAgents": [
+    "amp",
+    "antigravity",
+    "antigravity-cli",
+    "cline",
+    "codex",
+    "cursor",
+    "deepagents",
+    "gemini-cli",
+    "github-copilot",
+    "kimi-code-cli",
+    "opencode",
+    "warp",
+    "zed"
+  ]
+}

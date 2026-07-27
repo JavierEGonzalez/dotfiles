@@ -1,0 +1,49 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    ".scratch/AGENTS.md",
+    ".github/copilot-instructions.md"
+  ],
+  "plugin": [
+    "@plannotator/opencode@latest"
+  ],
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "model": "github-copilot/gpt-5.5",
+      "options": {},
+      "permission": {}
+    },
+    "general": {
+      "mode": "subagent",
+      "model": "github-copilot/claude-sonnet-4.6",
+      "options": {},
+      "permission": {}
+    },
+    "explore": {
+      "mode": "subagent",
+      "model": "github-copilot/claude-haiku-4.5",
+      "options": {},
+      "permission": {}
+    },
+    "scout": {
+      "mode": "subagent",
+      "model": "github-copilot/claude-sonnet-4.6",
+      "options": {},
+      "permission": {}
+    }
+  },
+  "mcp": {
+    "code-review-graph": {
+      "type": "local",
+      "command": [
+        "code-review-graph",
+        "mcp",
+        "--repo",
+        "/Users/javiergonzalez/workspace/prism3/nuclei"
+      ],
+      "enabled": true
+    }
+  },
+  "shell": "zsh"
+}
