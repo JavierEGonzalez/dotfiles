@@ -10,7 +10,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "github-copilot/gpt-5.5",
+      "model": "github-copilot/claude-opus-4.6",
       "options": {},
       "permission": {}
     },
@@ -31,7 +31,39 @@
       "model": "github-copilot/claude-sonnet-4.6",
       "options": {},
       "permission": {}
+    },
+    "single-task-worker": {
+      "mode": "subagent",
+      "model": "github-copilot/claude-sonnet-4.6",
+      "options": {},
+      "permission": {}
+    },
+    "orchestrator": {
+      "model": "github-copilot/claude-opus-4.8",
+      "options": {},
+      "permission": {}
+    },
+    "lint-fixer": {
+      "model": "github-copilot/claude-haiku-4.5",
+      "options": {},
+      "permission": {}
+    },
+    "task-orchestrator": {
+      "model": "github-copilot/claude-opus-4.8",
+      "options": {},
+      "permission": {}
+    },
+    "micro-task-runner": {
+      "mode": "subagent",
+      "model": "github-copilot/claude-haiku-4.5",
+      "options": {},
+      "permission": {}
     }
+  },
+  "skills": {
+    "paths": [
+      "/Users/javiergonzalez/workspace/dotfiles/opencode/external-agents/skills"
+    ]
   },
   "mcp": {
     "code-review-graph": {

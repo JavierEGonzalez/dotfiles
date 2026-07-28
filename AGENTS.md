@@ -13,3 +13,9 @@ The current preferences that might change
 - aliases and scripts for workflow improvements
 
 User uses the create_hardlinks.sh file to add configurations to the respective config directory.
+
+## OpenCode config
+If I ask you to do anything related to OpenCode configuration (agents, skills,
+commands, plugins, prompts, `opencode.json`), look in the `opencode/` directory
+first. See [AGENTS.oc.md](./AGENTS.oc.md) for its layout and how it
+maps into `~/.config/opencode/` and `~/.agents/` via `create_hardlinks.sh`.
