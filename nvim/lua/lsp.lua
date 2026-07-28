@@ -15,7 +15,7 @@ local lsp_plugins_table = {
 					"gopls",
 					"clangd",
 					"jdtls",
-					"astro-ls"
+					"astro"
 				},
 				automatic_enable = true,
 				automatic_installation = true,
@@ -186,7 +186,7 @@ local lsp_plugins_table = {
 			vim.lsp.config("jdtls", {})
 			vim.lsp.config("clangd", {})
 			vim.lsp.config("gopls", {})
-			vim.lsp.config("astro-ls", {})
+			vim.lsp.config("astro", {})
 
 			vim.api.nvim_create_autocmd("LspAttach", {
 				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
