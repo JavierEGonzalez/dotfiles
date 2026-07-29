@@ -651,4 +651,18 @@ require("lazy").setup({
 			halt_on_error = false, -- if true, will stop processing requests on error
 		},
 	},
+	{
+		"iamcco/markdown-preview.nvim",
+		build = "cd app && yarn install",
+		ft = { "markdown" },
+		init = function()
+			vim.cmd([[function! OpenMarkdownPreview(url) abort
+				call jobstart(['open', '-na', 'Google Chrome', '--args', '--app=' . a:url], {'detach': v:true})
+			endfunction]])
+			vim.g.mkdp_browserfunc = "OpenMarkdownPreview"
+		end,
+		keys = {
+			{ "<leader>mm", "<cmd>MarkdownPreviewToggle<cr>", desc = "Toggle Markdown Preview" },
+		},
+	},
 })
