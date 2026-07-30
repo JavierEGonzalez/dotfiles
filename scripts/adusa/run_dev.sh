@@ -1,4 +1,4 @@
-#/usr/local/bin/bash
+#!/bin/bash
 if [[ -z $1 ]] ; then
   yarn run dev
 else

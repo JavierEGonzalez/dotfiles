@@ -7,6 +7,13 @@
   "plugin": [
     "@plannotator/opencode@latest"
   ],
+  "permission": {
+    "external_directory": {
+      "~/.scratch/**": "allow",
+      "/tmp/**": "allow",
+      "~/workspace/**": "allow"
+    }
+  },
   "agent": {
     "plan": {
       "mode": "primary",
@@ -62,7 +69,7 @@
   },
   "skills": {
     "paths": [
-      "/Users/javiergonzalez/workspace/dotfiles/opencode/external-agents/skills"
+      "~/.agents/skills"
     ]
   },
   "mcp": {
@@ -70,9 +77,7 @@
       "type": "local",
       "command": [
         "code-review-graph",
-        "mcp",
-        "--repo",
-        "/Users/javiergonzalez/workspace/prism3/nuclei"
+        "mcp"
       ],
       "enabled": true
     }

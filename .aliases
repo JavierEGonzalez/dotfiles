@@ -16,8 +16,7 @@ alias rvt='yarn run test:unit'
 
 alias source.='source ~/.zshrc'
 alias sredo='sudo !!'
-alias vimrc='vim ~/.vimrc'
-alias zshrc='vim ~/.zshrc'
+alias zshrc='nvim ~/.zshrc'
 
 alias srch="sh $script_dir/scripts/srch.sh"
 alias vim='nvim'
@@ -30,8 +29,6 @@ alias bailast="$script_dir/scripts/ai_bash.sh -l"
 alias ralph="$script_dir/scripts/ralph.sh"
 
 alias aisearch="$script_dir/scripts/srch_online.sh"
-
-alias lvim=~/.local/bin/lvim
 
 alias pn=pnpm
 

@@ -147,6 +147,15 @@ link_aerospace() {
     echo "Done linking aerospace config."
 }
 
+# --- Borders ---
+link_borders() {
+    local dest_dir="$HOME/.config/borders"
+    mkdir -p "$dest_dir"
+    echo "Linking borders config to $dest_dir..."
+    create_hard_links_from_dir "$SOURCE_ROOT/borders" "$dest_dir"
+    echo "Done linking borders config."
+}
+
 # --- Agents (OpenCode config + external agents/skills) ---
 link_agents() {
     local opencode_dest="$HOME/.config/opencode"
@@ -176,7 +185,7 @@ echo "This script will help you set up your configuration files by creating hard
 echo "You will be prompted to select a configuration category to link."
 echo
 
-OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "Alacritty" "Agents" "All" "Quit")
+OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "Alacritty" "Borders" "Agents" "All" "Quit")
 
 while true; do
     echo "Select an option to link:"
@@ -223,6 +232,11 @@ while true; do
                 echo
                 break
                 ;;
+            "Borders")
+                link_borders
+                echo
+                break
+                ;;
             "Agents")
                 link_agents
                 echo
@@ -237,6 +251,7 @@ while true; do
                 link_zellij
                 link_aerospace
                 link_alacritty
+                link_borders
                 link_agents
                 echo
                 break

@@ -1,5 +1,5 @@
-#/usr/local/bin/bash
-source ~/.scratch/scripts/session_ticket_functions.sh
+#!/bin/bash
+source "$(dirname "$0")/session_ticket_functions.sh"
 
 tickets_file=~/.scratch/.currentTickets.txt
 

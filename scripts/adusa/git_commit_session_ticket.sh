@@ -1,4 +1,4 @@
-#/usr/local/bin/bash
+#!/bin/bash
 source "$(dirname "$0")/session_ticket_functions.sh"
 
 if [[ -z $ticket || $ticket == 'CXPVSP-' ]]; then

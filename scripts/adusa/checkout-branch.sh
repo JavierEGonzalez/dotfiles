@@ -1,4 +1,4 @@
-#/usr/local/bin/bash
+#!/bin/bash
 if [[ -z $1 ]] ; then
   tickets_file=~/.scratch/.currentTickets.txt
 

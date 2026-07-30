@@ -3,105 +3,411 @@
 /**
  * setup_opencode.ts
  *
- * Interactive wizard that builds ~/.config/opencode/opencode.json from scratch:
- *  - Shows available models (via `opencode models`)
- *  - Walks each agent and lets you pick a model (or keep current)
- *  - Walks each skill in external-agents/skills and asks which to activate via skills.paths
- *  - Writes the final config to ~/.config/opencode/opencode.json AND dotfiles/opencode/opencode.json
+ * Interactive wizard that builds ~/.config/opencode/opencode.json.
+ *
+ * Navigation:
+ *   ↑/↓ or j/k   move
+ *   space        toggle (multi-select)
+ *   a / n        select all / none (multi-select)
+ *   type         filter the list
+ *   enter        confirm
+ *   esc / ctrl-c cancel
  *
  * Usage:
  *   bun run setup_opencode.ts
- *   # or after chmod +x:
- *   ./setup_opencode.ts
  */
 
 import { execSync } from "child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import * as path from "path";
-import * as readline from "readline";
 
 // ─── paths ───────────────────────────────────────────────────────────────────
 const DOTFILES_ROOT = path.resolve(import.meta.dir);
 const OPENCODE_DOTFILES = path.join(DOTFILES_ROOT, "opencode");
 const SKILLS_DIR = path.join(OPENCODE_DOTFILES, "external-agents", "skills");
 const AGENTS_DIR = path.join(OPENCODE_DOTFILES, "agents");
-const OPENCODE_CONFIG_DIR = path.join(
-  process.env.HOME!,
-  ".config",
-  "opencode"
-);
+const OPENCODE_CONFIG_DIR = path.join(process.env.HOME!, ".config", "opencode");
 const CONFIG_DEST = path.join(OPENCODE_CONFIG_DIR, "opencode.json");
 const CONFIG_DOTFILES = path.join(OPENCODE_DOTFILES, "opencode.json");
 
-// ─── readline helper ─────────────────────────────────────────────────────────
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+// ─── ansi ────────────────────────────────────────────────────────────────────
+const useColor = !process.env.NO_COLOR && process.stdout.isTTY;
+const wrap = (open: string, close: string) => (s: string) =>
+  useColor ? `\x1b[${open}m${s}\x1b[${close}m` : s;
 
-function ask(question: string): Promise<string> {
-  return new Promise((resolve) => rl.question(question, resolve));
+const c = {
+  reset: "\x1b[0m",
+  bold: wrap("1", "22"),
+  dim: wrap("2", "22"),
+  red: wrap("31", "39"),
+  green: wrap("32", "39"),
+  yellow: wrap("33", "39"),
+  blue: wrap("34", "39"),
+  magenta: wrap("35", "39"),
+  cyan: wrap("36", "39"),
+  gray: wrap("90", "39"),
+  inverse: wrap("7", "27"),
+};
+
+const HIDE_CURSOR = "\x1b[?25l";
+const SHOW_CURSOR = "\x1b[?25h";
+
+// ─── key handling ────────────────────────────────────────────────────────────
+interface Key {
+  name: string;
+  seq: string;
 }
 
-function askYN(question: string, defaultYes = true): Promise<boolean> {
-  const hint = defaultYes ? "[Y/n]" : "[y/N]";
-  return ask(`${question} ${hint}: `).then((a) => {
-    const trimmed = a.trim().toLowerCase();
-    if (trimmed === "") return defaultYes;
-    return trimmed === "y" || trimmed === "yes";
+function parseKey(buf: Buffer): Key {
+  const seq = buf.toString();
+  switch (seq) {
+    case "\x03":
+      return { name: "ctrl-c", seq };
+    case "\x1b":
+      return { name: "escape", seq };
+    case "\r":
+    case "\n":
+      return { name: "return", seq };
+    case " ":
+      return { name: "space", seq };
+    case "\x7f":
+    case "\b":
+      return { name: "backspace", seq };
+    case "\x1b[A":
+    case "\x1bOA":
+      return { name: "up", seq };
+    case "\x1b[B":
+    case "\x1bOB":
+      return { name: "down", seq };
+    case "\x1b[D":
+    case "\x1bOD":
+      return { name: "left", seq };
+    case "\x1b[C":
+    case "\x1bOC":
+      return { name: "right", seq };
+    case "\x1b[5~":
+      return { name: "pageup", seq };
+    case "\x1b[6~":
+      return { name: "pagedown", seq };
+    case "\x1b[H":
+    case "\x1bOH":
+      return { name: "home", seq };
+    case "\x1b[F":
+    case "\x1bOF":
+      return { name: "end", seq };
+    default:
+      return { name: "char", seq };
+  }
+}
+
+function readKey(): Promise<Key> {
+  return new Promise((resolve) => {
+    const onData = (buf: Buffer) => {
+      process.stdin.off("data", onData);
+      resolve(parseKey(buf));
+    };
+    process.stdin.on("data", onData);
   });
 }
 
-// ─── model picker ────────────────────────────────────────────────────────────
+function enterRawMode() {
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdout.write(HIDE_CURSOR);
+}
+
+function exitRawMode() {
+  process.stdout.write(SHOW_CURSOR);
+  process.stdin.setRawMode(false);
+  process.stdin.pause();
+}
+
+function cancel(): never {
+  exitRawMode();
+  console.log(`\n  ${c.red("Cancelled.")} No files written.\n`);
+  process.exit(0);
+}
+
+// ─── renderer ────────────────────────────────────────────────────────────────
+/**
+ * Redraws a fixed-height block in place so the list does not scroll the
+ * terminal on every keypress.
+ */
+class Frame {
+  private height = 0;
+
+  draw(lines: string[]) {
+    if (this.height > 0) process.stdout.write(`\x1b[${this.height}A`);
+    const out = lines.map((l) => `\x1b[2K${l}`).join("\n");
+    process.stdout.write(out + "\n");
+    // Blank out any lines left over from a taller previous frame.
+    for (let i = lines.length; i < this.height; i++) {
+      process.stdout.write("\x1b[2K\n");
+    }
+    this.height = Math.max(lines.length, this.height);
+  }
+
+  done(lines: string[]) {
+    this.draw(lines);
+    this.height = 0;
+  }
+}
+
+// ─── prompt components ───────────────────────────────────────────────────────
+interface Choice<T> {
+  label: string;
+  value: T;
+  hint?: string;
+}
+
+const VIEWPORT = 10;
+
+function matches(choice: Choice<unknown>, filter: string): boolean {
+  if (!filter) return true;
+  const needle = filter.toLowerCase();
+  return (
+    choice.label.toLowerCase().includes(needle) ||
+    (choice.hint ?? "").toLowerCase().includes(needle)
+  );
+}
+
+function viewportSlice<T>(items: T[], cursor: number, size: number) {
+  if (items.length <= size) return { start: 0, items };
+  let start = cursor - Math.floor(size / 2);
+  start = Math.max(0, Math.min(start, items.length - size));
+  return { start, items: items.slice(start, start + size) };
+}
+
+async function selectOne<T>(
+  message: string,
+  choices: Choice<T>[],
+  initialIndex = 0
+): Promise<T> {
+  if (choices.length === 0) throw new Error("selectOne called with no choices");
+
+  const frame = new Frame();
+  let filter = "";
+  let visible = choices;
+  let cursor = Math.max(0, Math.min(initialIndex, choices.length - 1));
+
+  const render = (final = false) => {
+    const lines: string[] = [];
+    lines.push(`${c.green("?")} ${c.bold(message)}`);
+
+    if (final) {
+      const picked = visible[cursor]!;
+      lines[0] = `${c.green("✓")} ${c.bold(message)} ${c.cyan(picked.label)}`;
+      frame.done(lines);
+      return;
+    }
+
+    if (filter) lines.push(`  ${c.dim("filter:")} ${c.yellow(filter)}`);
+
+    const { start, items } = viewportSlice(visible, cursor, VIEWPORT);
+    if (items.length === 0) {
+      lines.push(`  ${c.red("no matches")}`);
+    }
+    items.forEach((choice, i) => {
+      const idx = start + i;
+      const active = idx === cursor;
+      const pointer = active ? c.cyan("❯") : " ";
+      const label = active ? c.cyan(choice.label) : choice.label;
+      const hint = choice.hint ? ` ${c.gray(choice.hint)}` : "";
+      lines.push(`${pointer} ${label}${hint}`);
+    });
+
+    if (visible.length > VIEWPORT) {
+      lines.push(
+        `  ${c.dim(`${cursor + 1}/${visible.length} — type to filter`)}`
+      );
+    } else {
+      lines.push(`  ${c.dim("↑/↓ move · type to filter · enter select")}`);
+    }
+    frame.draw(lines);
+  };
+
+  const reFilter = () => {
+    const previous = visible[cursor];
+    visible = choices.filter((ch) => matches(ch, filter));
+    const keep = previous ? visible.indexOf(previous) : -1;
+    cursor = keep >= 0 ? keep : 0;
+  };
+
+  render();
+  while (true) {
+    const key = await readKey();
+    if (key.name === "ctrl-c" || key.name === "escape") cancel();
+
+    if (key.name === "return") {
+      if (visible.length === 0) continue;
+      render(true);
+      return visible[cursor]!.value;
+    }
+    if (key.name === "up") {
+      cursor = cursor <= 0 ? visible.length - 1 : cursor - 1;
+    } else if (key.name === "down") {
+      cursor = cursor >= visible.length - 1 ? 0 : cursor + 1;
+    } else if (key.name === "pageup") {
+      cursor = Math.max(0, cursor - VIEWPORT);
+    } else if (key.name === "pagedown") {
+      cursor = Math.min(visible.length - 1, cursor + VIEWPORT);
+    } else if (key.name === "home") {
+      cursor = 0;
+    } else if (key.name === "end") {
+      cursor = visible.length - 1;
+    } else if (key.name === "backspace") {
+      filter = filter.slice(0, -1);
+      reFilter();
+    } else if (key.name === "space" || key.name === "char") {
+      if (key.seq.length === 1 && key.seq >= " ") {
+        filter += key.seq;
+        reFilter();
+      }
+    }
+    render();
+  }
+}
+
+async function multiSelect<T>(
+  message: string,
+  choices: Choice<T>[],
+  initialChecked: boolean[] = []
+): Promise<T[]> {
+  if (choices.length === 0) return [];
+
+  const frame = new Frame();
+  const checked = choices.map((_, i) => initialChecked[i] ?? false);
+  let cursor = 0;
+
+  const render = (final = false) => {
+    const lines: string[] = [];
+    const count = checked.filter(Boolean).length;
+
+    if (final) {
+      lines.push(
+        `${c.green("✓")} ${c.bold(message)} ${c.cyan(`${count} selected`)}`
+      );
+      frame.done(lines);
+      return;
+    }
+    lines.push(`${c.green("?")} ${c.bold(message)} ${c.dim(`(${count} selected)`)}`);
+
+    const { start, items } = viewportSlice(choices, cursor, VIEWPORT);
+    items.forEach((choice, i) => {
+      const idx = start + i;
+      const active = idx === cursor;
+      const box = checked[idx] ? c.green("◉") : c.gray("◯");
+      const pointer = active ? c.cyan("❯") : " ";
+      const label = active ? c.cyan(choice.label) : choice.label;
+      const hint = choice.hint ? ` ${c.gray(choice.hint)}` : "";
+      lines.push(`${pointer} ${box} ${label}${hint}`);
+    });
+
+    lines.push(
+      `  ${c.dim("↑/↓ move · space toggle · a all · n none · enter confirm")}`
+    );
+    frame.draw(lines);
+  };
+
+  render();
+  while (true) {
+    const key = await readKey();
+    if (key.name === "ctrl-c" || key.name === "escape") cancel();
+
+    if (key.name === "return") {
+      render(true);
+      return choices.filter((_, i) => checked[i]).map((ch) => ch.value);
+    }
+    if (key.name === "up") {
+      cursor = cursor <= 0 ? choices.length - 1 : cursor - 1;
+    } else if (key.name === "down") {
+      cursor = cursor >= choices.length - 1 ? 0 : cursor + 1;
+    } else if (key.name === "pageup") {
+      cursor = Math.max(0, cursor - VIEWPORT);
+    } else if (key.name === "pagedown") {
+      cursor = Math.min(choices.length - 1, cursor + VIEWPORT);
+    } else if (key.name === "space") {
+      checked[cursor] = !checked[cursor];
+    } else if (key.name === "char") {
+      const ch = key.seq.toLowerCase();
+      if (ch === "a") checked.fill(true);
+      else if (ch === "n") checked.fill(false);
+      else if (ch === "j") cursor = cursor >= choices.length - 1 ? 0 : cursor + 1;
+      else if (ch === "k") cursor = cursor <= 0 ? choices.length - 1 : cursor - 1;
+    }
+    render();
+  }
+}
+
+async function confirm(message: string, initial = true): Promise<boolean> {
+  return selectOne<boolean>(
+    message,
+    [
+      { label: "Yes", value: true },
+      { label: "No", value: false },
+    ],
+    initial ? 0 : 1
+  );
+}
+
+// ─── domain helpers ──────────────────────────────────────────────────────────
 function getAvailableModels(): string[] {
   try {
-    const out = execSync("opencode models", { encoding: "utf8" });
-    return out
+    return execSync("opencode models", { encoding: "utf8" })
       .trim()
       .split("\n")
       .map((l: string) => l.trim())
       .filter(Boolean);
   } catch {
-    console.warn("⚠  Could not run `opencode models`. Falling back to empty list.");
     return [];
   }
 }
 
-async function pickModel(
-  models: string[],
-  agentName: string,
-  currentModel: string
-): Promise<string> {
-  console.log(`\n  Available models:`);
-  models.forEach((m, i) => {
-    const mark = m === currentModel ? " ◀ current" : "";
-    console.log(`    ${String(i + 1).padStart(2)}. ${m}${mark}`);
-  });
-  console.log(`     0. Keep current (${currentModel})`);
+/**
+ * Reads a scalar key out of a SKILL.md YAML frontmatter block.
+ * Handles plain scalars as well as folded (`>`) and literal (`|`) blocks,
+ * whose value lives on the following indented lines.
+ */
+function readFrontmatterValue(frontmatter: string, key: string): string | undefined {
+  const lines = frontmatter.split("\n");
+  const start = lines.findIndex((l) => new RegExp(`^${key}:`).test(l));
+  if (start === -1) return undefined;
 
-  while (true) {
-    const raw = await ask(`  Pick model for "${agentName}" [0-${models.length}]: `);
-    const n = parseInt(raw.trim(), 10);
-    if (raw.trim() === "" || n === 0) return currentModel;
-    if (n >= 1 && n <= models.length) return models[n - 1]!;
-    console.log("  Invalid choice, try again.");
+  const inline = lines[start]!.slice(key.length + 1).trim();
+  if (inline && !/^[>|][-+]?$/.test(inline)) {
+    return inline.replace(/^["']|["']$/g, "");
   }
+
+  const block: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line.trim() === "") continue;
+    if (!/^\s/.test(line)) break;
+    block.push(line.trim());
+  }
+  return block.length > 0 ? block.join(" ") : undefined;
 }
 
-// ─── skill discovery ─────────────────────────────────────────────────────────
-function getSkillName(skillDir: string): { name: string; description: string } {
+function getSkillMeta(skillDir: string): { name: string; description: string } {
   const skillFile = path.join(skillDir, "SKILL.md");
-  if (!existsSync(skillFile)) return { name: path.basename(skillDir), description: "" };
+  const fallback = path.basename(skillDir);
+  if (!existsSync(skillFile)) return { name: fallback, description: "" };
+
   const content = readFileSync(skillFile, "utf8");
-  const nameMatch = content.match(/^name:\s*(.+)$/m);
-  const descMatch = content.match(/^description:\s*(.+)$/m);
+  const frontmatter = content.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? content;
   return {
-    name: nameMatch?.[1]?.trim() ?? path.basename(skillDir),
-    description: descMatch?.[1]?.trim() ?? "",
+    name: readFrontmatterValue(frontmatter, "name") ?? fallback,
+    description: readFrontmatterValue(frontmatter, "description") ?? "",
   };
 }
 
-// ─── agent discovery ─────────────────────────────────────────────────────────
+function getAgentFileNames(): string[] {
+  if (!existsSync(AGENTS_DIR)) return [];
+  return readdirSync(AGENTS_DIR)
+    .filter((f: string) => f.endsWith(".md"))
+    .map((f: string) => path.basename(f, ".md"));
+}
+
 interface AgentConfig {
   mode?: string;
   model?: string;
@@ -110,173 +416,225 @@ interface AgentConfig {
   [key: string]: unknown;
 }
 
-function getAgentFiles(): string[] {
-  if (!existsSync(AGENTS_DIR)) return [];
-  return readdirSync(AGENTS_DIR)
-    .filter((f: string) => f.endsWith(".md"))
-    .map((f: string) => path.join(AGENTS_DIR, f));
+/** Result of picking a model for one agent. */
+type ModelChoice =
+  | { kind: "keep" }
+  | { kind: "inherit" }
+  | { kind: "model"; value: string };
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+function heading(title: string) {
+  const bar = "━".repeat(46);
+  console.log(`\n${c.gray(bar)}`);
+  console.log(`  ${c.bold(title)}`);
+  console.log(`${c.gray(bar)}\n`);
 }
 
 // ─── main ────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log("\n╔══════════════════════════════════════╗");
-  console.log("║    opencode setup wizard             ║");
-  console.log("╚══════════════════════════════════════╝\n");
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.error("This wizard needs an interactive terminal (TTY).");
+    process.exit(1);
+  }
 
-  // Load existing config as base
+  enterRawMode();
+  process.on("exit", () => process.stdout.write(SHOW_CURSOR));
+
+  console.log(`\n  ${c.bold(c.magenta("opencode setup wizard"))}`);
+  console.log(`  ${c.dim("↑/↓ navigate · enter select · esc cancel")}\n`);
+
   let existingConfig: Record<string, unknown> = {};
   if (existsSync(CONFIG_DOTFILES)) {
     try {
       existingConfig = JSON.parse(readFileSync(CONFIG_DOTFILES, "utf8"));
     } catch {
-      console.warn("⚠  Could not parse existing opencode.json, starting fresh.");
+      console.log(`  ${c.yellow("⚠")} Could not parse existing opencode.json.`);
     }
   }
-
   const existingAgents = (existingConfig.agent ?? {}) as Record<string, AgentConfig>;
 
-  // ── 1. Models ──────────────────────────────────────────────────────────────
-  console.log("⟳  Fetching available models...");
-  const models = getAvailableModels();
-  if (models.length === 0) {
-    console.log("  No models found. Make sure opencode is installed and authenticated.");
-  } else {
-    console.log(`  Found ${models.length} models.\n`);
-  }
+  // ── agents ────────────────────────────────────────────────────────────────
+  heading("AGENTS");
 
-  // ── 2. Agents ──────────────────────────────────────────────────────────────
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  AGENTS");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-
-  // Built-in agents from opencode.json agent block
-  const builtinAgentNames = ["plan", "general", "explore", "scout", "single-task-worker"];
   const builtinDefaults: Record<string, AgentConfig> = {
-    plan: { mode: "primary", model: "github-copilot/gpt-5.5" },
-    general: { mode: "subagent", model: "github-copilot/claude-sonnet-4.6" },
-    explore: { mode: "subagent", model: "github-copilot/claude-haiku-4.5" },
-    scout: { mode: "subagent", model: "github-copilot/claude-sonnet-4.6" },
-    "single-task-worker": { mode: "subagent", model: "github-copilot/claude-sonnet-4.6" },
+    plan: { mode: "primary" },
+    general: { mode: "subagent" },
+    explore: { mode: "subagent" },
+    scout: { mode: "subagent" },
+    "single-task-worker": { mode: "subagent" },
   };
 
-  const agentFileNames = getAgentFiles().map((f) => path.basename(f, ".md"));
-
-  // Union of known agents
   const allAgentNames = Array.from(
-    new Set([...builtinAgentNames, ...agentFileNames])
+    new Set([...Object.keys(builtinDefaults), ...getAgentFileNames(), ...Object.keys(existingAgents)])
   );
+
+  console.log(`  ${c.dim("Current agent models:")}`);
+  for (const name of allAgentNames) {
+    const model = existingAgents[name]?.model;
+    const shown = model ? c.cyan(model) : c.gray("(inherits default)");
+    console.log(`    ${name.padEnd(20)} ${shown}`);
+  }
+  console.log();
 
   const newAgents: Record<string, AgentConfig> = {};
+  for (const name of allAgentNames) {
+    const base = existingAgents[name] ?? builtinDefaults[name] ?? {};
+    newAgents[name] = { ...(base as Record<string, unknown>) };
+  }
 
-  for (const agentName of allAgentNames) {
-    const current = existingAgents[agentName] ?? builtinDefaults[agentName] ?? {};
-    const currentModel = (current.model as string | undefined) ?? "github-copilot/claude-sonnet-4.6";
-    console.log(`\n  Agent: ${agentName}`);
-    if (current.mode) console.log(`  Mode:  ${current.mode}`);
+  const wantModels = await confirm("Configure agent models?", false);
 
-    let chosenModel = currentModel;
-    if (models.length > 0) {
-      chosenModel = await pickModel(models, agentName, currentModel);
+  if (wantModels) {
+    const models = getAvailableModels();
+    if (models.length === 0) {
+      console.log(
+        `  ${c.yellow("⚠")} Could not read \`opencode models\`. Skipping model setup.`
+      );
     } else {
-      const raw = await ask(`  Model for "${agentName}" [${currentModel}]: `);
-      if (raw.trim()) chosenModel = raw.trim();
-    }
+      console.log(`  ${c.dim(`${models.length} models available.`)}\n`);
 
-    newAgents[agentName] = {
-      ...(current as Record<string, unknown>),
-      model: chosenModel,
-      options: current.options ?? {},
-      permission: current.permission ?? {},
-    };
+      const agentsToEdit = await multiSelect(
+        "Which agents do you want to change?",
+        allAgentNames.map((name) => ({
+          label: name,
+          value: name,
+          hint: existingAgents[name]?.model ?? "(inherits default)",
+        }))
+      );
+
+      for (const name of agentsToEdit) {
+        const current = existingAgents[name]?.model;
+        const choices: Choice<ModelChoice>[] = [
+          {
+            label: "Keep as is",
+            value: { kind: "keep" },
+            hint: current ?? "(inherits default)",
+          },
+          {
+            label: "No explicit model",
+            value: { kind: "inherit" },
+            hint: "inherit opencode's default",
+          },
+          ...models.map((m) => ({
+            label: m,
+            value: { kind: "model" as const, value: m },
+            hint: m === current ? "← current" : undefined,
+          })),
+        ];
+
+        const picked = await selectOne(`Model for ${c.magenta(name)}`, choices);
+        if (picked.kind === "inherit") {
+          delete newAgents[name]!.model;
+        } else if (picked.kind === "model") {
+          newAgents[name]!.model = picked.value;
+        }
+      }
+    }
+  } else {
+    console.log(`  ${c.dim("Keeping existing agent models.")}`);
   }
 
-  // ── 3. Skills ──────────────────────────────────────────────────────────────
-  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  SKILLS");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  // ── skills ────────────────────────────────────────────────────────────────
+  heading("SKILLS");
 
-  const existingSkillPaths = ((existingConfig.skills as { paths?: string[] })?.paths ?? []) as string[];
+  const existingSkillPaths = ((existingConfig.skills as { paths?: string[] })?.paths ??
+    []) as string[];
+  const autoLoadAll =
+    existingSkillPaths.includes(SKILLS_DIR) || existingSkillPaths.includes("~/.agents/skills");
 
-  // External-agents path is already the auto-load path, no need to add each
-  // skill individually. Ask if user wants to include it wholesale.
-  const useExternalAgents = await askYN(
-    `  Auto-load ALL skills from dotfiles/opencode/external-agents/skills (${SKILLS_DIR})?`,
-    true
-  );
+  let skillPaths: string[] = existingSkillPaths;
 
-  const skillPaths: string[] = useExternalAgents ? [SKILLS_DIR] : [];
-
-  if (!useExternalAgents && existsSync(SKILLS_DIR)) {
+  if (!existsSync(SKILLS_DIR)) {
+    console.log(`  ${c.yellow("⚠")} No skills directory at ${SKILLS_DIR}`);
+  } else {
     const skillDirs = readdirSync(SKILLS_DIR, { withFileTypes: true })
-      .filter((d: import("fs").Dirent) => d.isDirectory())
-      .map((d: import("fs").Dirent) => path.join(SKILLS_DIR, d.name));
+      .filter((d) => d.isDirectory())
+      .map((d) => path.join(SKILLS_DIR, d.name))
+      .sort();
 
-    for (const skillDir of skillDirs) {
-      const { name, description } = getSkillName(skillDir);
-      const shortDesc = description.length > 60 ? description.slice(0, 57) + "..." : description;
-      const wasEnabled = existingSkillPaths.some((p) =>
-        p === skillDir || p === SKILLS_DIR
+    const metas = skillDirs.map((dir) => ({ dir, ...getSkillMeta(dir) }));
+
+    console.log(`  ${c.dim(`${metas.length} skills found in`)} ${c.gray(SKILLS_DIR)}\n`);
+    for (const meta of metas) {
+      console.log(`    ${c.cyan(meta.name.padEnd(26))} ${c.gray(truncate(meta.description, 70))}`);
+    }
+    console.log();
+
+    const mode = await selectOne<"all" | "pick" | "keep">(
+      "How do you want to load skills?",
+      [
+        {
+          label: "Auto-load the whole skills directory",
+          value: "all",
+          hint: "~/.agents/skills",
+        },
+        { label: "Pick individual skills", value: "pick" },
+        { label: "Keep current configuration", value: "keep" },
+      ],
+      autoLoadAll ? 0 : 1
+    );
+
+    if (mode === "all") {
+      skillPaths = ["~/.agents/skills"];
+    } else if (mode === "pick") {
+      const selected = await multiSelect(
+        "Select skills to enable",
+        metas.map((meta) => ({
+          label: meta.name,
+          value: meta.dir,
+          hint: truncate(meta.description, 54),
+        })),
+        metas.map((meta) => autoLoadAll || existingSkillPaths.includes(meta.dir))
       );
-      const enable = await askYN(
-        `  Enable skill "${name}"?\n    ${shortDesc}`,
-        wasEnabled
-      );
-      if (enable) skillPaths.push(skillDir);
+      skillPaths = selected;
+
+      if (selected.length > 0) {
+        console.log(`\n  ${c.dim("Selected skill paths:")}`);
+        for (const p of selected) console.log(`    ${c.gray(p)}`);
+      }
     }
   }
 
-  // ── 4. MCP servers ─────────────────────────────────────────────────────────
-  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  MCP SERVERS  (keeping existing config)");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  const existingMcp = existingConfig.mcp ?? {};
-
-  // ── 5. Build final config ──────────────────────────────────────────────────
+  // ── build config ──────────────────────────────────────────────────────────
   const newConfig: Record<string, unknown> = {
     $schema: "https://opencode.ai/config.json",
-    instructions: existingConfig.instructions ?? [
-      ".scratch/AGENTS.md",
-      ".github/copilot-instructions.md",
-    ],
-    plugin: existingConfig.plugin ?? ["@plannotator/opencode@latest"],
+    instructions: existingConfig.instructions,
+    plugin: existingConfig.plugin,
+    permission: existingConfig.permission,
     agent: newAgents,
     skills: skillPaths.length > 0 ? { paths: skillPaths } : undefined,
-    mcp: existingMcp,
+    mcp: existingConfig.mcp,
     shell: existingConfig.shell ?? "zsh",
   };
-
-  // Remove undefined keys
   for (const key of Object.keys(newConfig)) {
     if (newConfig[key] === undefined) delete newConfig[key];
   }
 
-  // ── 6. Preview ─────────────────────────────────────────────────────────────
-  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  PREVIEW");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  // ── preview ───────────────────────────────────────────────────────────────
+  heading("PREVIEW");
   console.log(JSON.stringify(newConfig, null, 2));
+  console.log();
 
-  const confirm = await askYN("\n  Write this config to disk?", true);
-  if (!confirm) {
-    console.log("\n  Aborted. No files written.");
-    rl.close();
-    process.exit(0);
-  }
+  const write = await confirm("Write this config to disk?", true);
+  if (!write) cancel();
 
-  // ── 7. Write ───────────────────────────────────────────────────────────────
   const json = JSON.stringify(newConfig, null, 2) + "\n";
+  mkdirSync(OPENCODE_CONFIG_DIR, { recursive: true });
   writeFileSync(CONFIG_DEST, json, "utf8");
   writeFileSync(CONFIG_DOTFILES, json, "utf8");
 
-  console.log(`\n  ✓  Written to ${CONFIG_DEST}`);
-  console.log(`  ✓  Written to ${CONFIG_DOTFILES}`);
-  console.log("\n  Restart opencode for changes to take effect.\n");
+  console.log(`\n  ${c.green("✓")} ${CONFIG_DEST}`);
+  console.log(`  ${c.green("✓")} ${CONFIG_DOTFILES}`);
+  console.log(`\n  ${c.dim("Restart opencode for changes to take effect.")}\n`);
 
-  rl.close();
+  exitRawMode();
 }
 
 main().catch((err) => {
+  exitRawMode();
   console.error(err);
-  rl.close();
   process.exit(1);
 });

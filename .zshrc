@@ -99,9 +99,6 @@ else
 fi
 
 
-# colored GCC warnings and errors
-#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
-
 # some more ls aliases
 alias ls="ls -G"
 alias ll='ls -alF'
@@ -113,11 +110,6 @@ set -o vi
 export PATH="$HOME/.jenv/bin:$PATH"
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 
-#export NVM_DIR="$HOME/.nvm"
-#[ -s "/usr/local/opt/nvm/nvm.sh" ] && \. "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
-#[ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/usr/local/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-
-echo 'eval "$(mise activate bash)"' >> ~/.bashrc
 
 # check if direnv exists
 if command -v direnv >/dev/null 2>&1; then
@@ -141,10 +133,14 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # bun completions
 [ -s "/Users/javiergonzalez/.bun/_bun" ] && source "/Users/javiergonzalez/.bun/_bun"
+
+# OpenCode shell completion
+if command -v opencode >/dev/null 2>&1; then
+  source <(opencode completion zsh)
+fi
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
