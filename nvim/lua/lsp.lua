@@ -132,7 +132,7 @@ local lsp_plugins_table = {
 					table.insert(config.settings.vtsls.tsserver.globalPlugins, {
 						name = "@vue/typescript-plugin",
 						location = vim.fn.expand(
-							"$MASON/packages/vue-language-server/node_modules/@vue/language-server"
+							"$MASON/packages/vue-language-server/node_modules/@vue/typescript-plugin"
 						),
 						languages = { "vue" },
 						configNamespace = "typescript",
