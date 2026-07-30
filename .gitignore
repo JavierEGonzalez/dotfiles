@@ -1,0 +1,11 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+*
+!.gitignore
+
+# Version-controlled opencode setup (config + external agents/skills)
+!opencode/
+!opencode/**
+
+# Version-controlled neovim setup
+!nvim/
+!nvim/**
