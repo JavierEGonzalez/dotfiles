@@ -636,7 +636,13 @@ require("lazy").setup({
 		end,
 		version = "*",
 	},
-	"sindrets/diffview.nvim",
+	{
+		"sindrets/diffview.nvim",
+		keys = {
+			{ "<leader>pr", "<cmd>DiffViewOpen origin/main...HEAD<cr>", desc = "Open PR diff" },
+			{ "<leader>pc", "<cmd>DiffViewClose<cr>", desc = "Close PR diff" },
+		},
+	},
 	{
 		"mistweaverco/kulala.nvim",
 		keys = {
