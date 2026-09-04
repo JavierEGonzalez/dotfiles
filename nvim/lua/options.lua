@@ -25,6 +25,7 @@ vim.opt.inccommand = "split"
 
 vim.opt.smartcase = true
 vim.opt.wrap = false
+vim.opt.foldenable = false
 
 vim.opt.termguicolors = true
 

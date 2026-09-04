@@ -6,6 +6,10 @@
 !opencode/
 !opencode/**
 
+# Version-controlled copilot CLI config
+!copilot/
+!copilot/**
+
 # Version-controlled neovim setup
 !nvim/
 !nvim/**

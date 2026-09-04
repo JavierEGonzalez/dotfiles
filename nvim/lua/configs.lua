@@ -8,6 +8,8 @@ map('n', '<leader>wq', ':wq<cr>', { noremap = true, silent = false })
 map('n', '<leader>qq', ':wq<cr>', { noremap = true, silent = false })
 map('n', '<leader>Q', ':wqall!<cr>', { noremap = true, silent = false })
 map('n', '<leader>QQ', ':wqall!<cr>', { noremap = true, silent = false })
+map('n', '<leader>pr', ':DiffViewOpen origin/main...HEAD<cr>', { noremap = true, silent = false })
+map('n', '<leader>pc', ':DiffViewClose<cr>', { noremap = true, silent = false })
 
 vim.api.nvim_create_user_command('WQ', 'wq', {})
 vim.api.nvim_create_user_command('Wq', 'wq', {})
@@ -49,7 +51,7 @@ end, { noremap = true, silent = true, desc = 'Copy file:lines ref to clipboard' 
 vim.keymap.set('n', '<leader>ly', function()
   local line = vim.fn.line('.')
   local rel_path = vim.fn.expand('%')
-  local result = rel_path .. ' L' .. line .. ':' .. line
+  local result = rel_path .. ' L:' .. line
   vim.fn.setreg('+', result)
   vim.api.nvim_echo({{ result .. ' copied', 'Normal' }}, false, {})
 end, { noremap = true, silent = true, desc = 'Copy file:line ref to clipboard' })
@@ -58,6 +60,11 @@ map('n', '<M-j>', ':Treewalker Down<CR>', { noremap = true })
 map('n', '<M-k>', ':Treewalker Up<CR>', { noremap = true })
 map('n', '<M-h>', ':Treewalker Left<CR>', { noremap = true })
 map('n', '<M-l>', ':Treewalker Right<CR>', { noremap = true })
+
+-- annotate the current file in the Plannotator UI
+vim.keymap.set('n', '<leader>pp', function()
+  require('plannotator').annotate()
+end, { desc = 'Plannotator: annotate current file' })
 
 -- open diagnostics dialog box for full details
 map('n', '<leader>dd', ':lua vim.diagnostic.goto_next() <CR>', { noremap = true })
@@ -86,4 +93,3 @@ local triggers = {"."}
 --    end
 --  end
 --})
-

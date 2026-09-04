@@ -8,7 +8,7 @@ Ticket Format: CXPVSP-{n} formalized as [a-zA-Z]+-[\d]+. Most will be CXPVSP-
 If user gives you a ticket number use your jira finder skill.
 If user simply mentions current ticket, look at the branch for the ticket name.
 
-When users mention JIRA tickets (in format CXPVSP-<number> or full URLs), OpenCode should:
+When users mention JIRA tickets (in format CXPVSP-<number> or full URLs):
 1. Check for existing local files at `~/workspace/Work Brain/Work/tickets/{ticket_id}.md` or `~/workspace/Work Brain/Work/tickets/{ticket_id}.txt` (also available via symlink at `~/.scratch/tickets`)
 2. If found, use the existing content
 3. If not found, fetch from JIRA and save locally (the script saves to `~/workspace/Work Brain/Work/tickets/`)
@@ -21,11 +21,3 @@ otherwise for planning, always store the plan in a (new if doesn't exist) `./.sc
 
 When making a plan, provide context at the top — current state of the relevant files and
 functions, where we are in the implementation, and code examples with references to the proposed solution.
-
-See [AGENTS.planning.md](./AGENTS.planning.md) for the full planning ruleset.
-
-## OpenCode Runtime Notes
-
-- `crg-plugin.ts` emits `app.on is not a function` — known issue, safe to ignore
-- `claude-opus-5` does not support assistant message prefill — do not use it for tasks that require prefill-style continuation
-- `models.dev` is unreachable in this environment — ignore those fetch errors

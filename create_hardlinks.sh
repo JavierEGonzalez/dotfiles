@@ -156,6 +156,15 @@ link_borders() {
     echo "Done linking borders config."
 }
 
+# --- Copilot CLI ---
+link_copilot() {
+    local dest_dir="$HOME/.copilot"
+    mkdir -p "$dest_dir"
+    echo "Linking copilot config to $dest_dir..."
+    create_hard_links_from_dir "$SOURCE_ROOT/copilot" "$dest_dir"
+    echo "Done linking copilot config."
+}
+
 # --- Agents (OpenCode config + external agents/skills) ---
 link_agents() {
     local opencode_dest="$HOME/.config/opencode"
@@ -185,7 +194,7 @@ echo "This script will help you set up your configuration files by creating hard
 echo "You will be prompted to select a configuration category to link."
 echo
 
-OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "Alacritty" "Borders" "Agents" "All" "Quit")
+OPTIONS=("Scripts" "Dotfiles" "Nvim" "Tmuxinator" "Karabiner" "Zellij" "Aerospace" "Alacritty" "Borders" "Agents" "Copilot" "All" "Quit")
 
 while true; do
     echo "Select an option to link:"
@@ -242,6 +251,11 @@ while true; do
                 echo
                 break
                 ;;
+            "Copilot")
+                link_copilot
+                echo
+                break
+                ;;
             "All")
                 link_scripts
                 link_dotfiles
@@ -253,6 +267,7 @@ while true; do
                 link_alacritty
                 link_borders
                 link_agents
+                link_copilot
                 echo
                 break
                 ;;

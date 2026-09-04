@@ -121,6 +121,9 @@ export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
 export NODE_EXTRA_CA_CERTS=~/.scratch/zscaler_root.cer
 
+# Open every Plannotator session in a chromeless Chrome app window.
+export PLANNOTATOR_BROWSER="$HOME/.scratch/scripts/plannotator-chrome-app"
+
 if [[ "$PROFILE_STARTUP" == true ]]; then
     unsetopt xtrace
     exec 2>&3 3>&-

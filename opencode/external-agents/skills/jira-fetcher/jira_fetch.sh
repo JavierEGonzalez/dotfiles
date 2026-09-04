@@ -6,7 +6,7 @@
 # Configuration
 JIRA_BASE_URL="https://jira-us-aholddelhaize.atlassian.net"
 JIRA_API="${JIRA_BASE_URL}/rest/api/2/issue"
-OUTPUT_DIR="$HOME/.scratch/tickets"
+OUTPUT_DIR="$HOME/workspace/Work Brain/Work/tickets"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"

@@ -2,7 +2,7 @@
 
 JIRA_URL="https://jira-us-aholddelhaize.atlassian.net/rest/api/2/issue"
 CRED_DIR="$HOME/.scratch"
-TICKET_DIR="$CRED_DIR/tickets"
+TICKET_DIR="$HOME/workspace/Work Brain/Work/tickets"
 
 mkdir -p "$TICKET_DIR"
 

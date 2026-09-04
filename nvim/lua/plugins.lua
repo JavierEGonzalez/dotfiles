@@ -1,4 +1,5 @@
 -- last updated: 2024-06-19
+--
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local lsp_plugin_table = require("lsp")
 
@@ -221,15 +222,15 @@ require("lazy").setup({
 					"css",
 					"json",
 					"yaml",
-					"sh"
+					"sh",
 				},
 				auto_install = true,
 			})
 		end,
 	},
 	{
-		'MeanderingProgrammer/treesitter-modules.nvim',
-		dependencies = { 'nvim-treesitter/nvim-treesitter' },
+		"MeanderingProgrammer/treesitter-modules.nvim",
+		dependencies = { "nvim-treesitter/nvim-treesitter" },
 		---@module 'treesitter-modules'
 		---@type ts.mod.UserConfig
 		opts = {
@@ -242,10 +243,10 @@ require("lazy").setup({
 			incremental_selection = {
 				enable = true,
 				keymaps = {
-					init_selection = '<leader>ss',
-					node_incremental = '<leader>si',
-					scope_incremental = '<leader>sc',
-					node_decremental = '<leader>sd',
+					init_selection = "<leader>ss",
+					node_incremental = "<leader>si",
+					scope_incremental = "<leader>sc",
+					node_decremental = "<leader>sd",
 				},
 			},
 		},
@@ -466,91 +467,91 @@ require("lazy").setup({
 			})
 		end,
 	},
-	{
-		"folke/sidekick.nvim",
-		opts = {
-			cli = {
-				mux = {
-				  backend = "tmux",
-				  enabled = true,
-				},
-			},
-		},
-		keys = {
-			{
-				"<C-y>",
-				function()
-					-- if there is a next edit, jump to it, otherwise apply it if any
-					if not require("sidekick").nes_jump_or_apply() then
-						return "<Tab>" -- fallback to normal tab
-					end
-				end,
-				expr = true,
-				desc = "Goto/Apply Next Edit Suggestion",
-			},
-			{
-				"<leader>aa",
-				function()
-					require("sidekick.cli").toggle({ name = "copilot" })
-				end,
-				desc = "Sidekick Toggle CLI",
-			},
-			{
-				"<leader>as",
-				function()
-					require("sidekick.cli").select({ filter = { installed = true } })
-				end,
-				-- Or to select only installed tools:
-
-				desc = "Select CLI",
-			},
-			{
-	 			"<leader>ad",
-				function()
-					require("sidekick.cli").close()
-				end,
-				desc = "Detach a CLI Session",
-			},
-			{
-				"<leader>at",
-				function()
-					require("sidekick.cli").send({ msg = "{this}" })
-				end,
-				mode = { "x", "n" },
-				desc = "Send This",
-			},
-			{
-				"<leader>af",
-				function()
-					require("sidekick.cli").send({ msg = "{file}" })
-				end,
-				desc = "Send File",
-			},
-			{
-				"<leader>av",
-				function()
-					require("sidekick.cli").send({ msg = "{selection}" })
-				end,
-				mode = { "x" },
-				desc = "Send Visual Selection",
-			},
-			{
-				"<leader>ap",
-				function()
-					require("sidekick.cli").prompt()
-				end,
-				mode = { "n", "x" },
-				desc = "Sidekick Select Prompt",
-			},
-			{
-				"<leader>ac",
-				function()
-					require("sidekick.cli").toggle({ name = "opencode", focus = true })
-				end,
-				desc = "Sidekick Toggle Opencode",
-			},
-		},
-	},
+	-- {
+	-- 	"folke/sidekick.nvim",
+	-- 	opts = {
+	-- 		cli = {
+	-- 			mux = {
+	-- 			  backend = "tmux",
+	-- 			  enabled = true,
+	-- 			},
+	-- 		},
+	-- 	},
+	-- 	keys = {
+	-- 		{
+	-- 			"<C-y>",
+	-- 			function()
+	-- 				-- if there is a next edit, jump to it, otherwise apply it if any
+	-- 				if not require("sidekick").nes_jump_or_apply() then
+	-- 					return "<Tab>" -- fallback to normal tab
+	-- 				end
+	-- 			end,
+	-- 			expr = true,
+	-- 			desc = "Goto/Apply Next Edit Suggestion",
+	-- 		},
+	-- 		{
+	-- 			"<leader>aa",
+	-- 			function()
+	-- 				require("sidekick.cli").toggle({ name = "copilot" })
+	-- 			end,
+	-- 			desc = "Sidekick Toggle CLI",
+	-- 		},
+	-- 		{
+	-- 			"<leader>as",
+	-- 			function()
+	-- 				require("sidekick.cli").select({ filter = { installed = true } })
+	-- 			end,
+	-- 			-- Or to select only installed tools:
+	--
+	-- 			desc = "Select CLI",
+	-- 		},
+	-- 		{
+	--  			"<leader>ad",
+	-- 			function()
+	-- 				require("sidekick.cli").close()
+	-- 			end,
+	-- 			desc = "Detach a CLI Session",
+	-- 		},
+	-- 		{
+	-- 			"<leader>at",
+	-- 			function()
+	-- 				require("sidekick.cli").send({ msg = "{this}" })
+	-- 			end,
+	-- 			mode = { "x", "n" },
+	-- 			desc = "Send This",
+	-- 		},
+	-- 		{
+	-- 			"<leader>af",
+	-- 			function()
+	-- 				require("sidekick.cli").send({ msg = "{file}" })
+	-- 			end,
+	-- 			desc = "Send File",
+	-- 		},
+	-- 		{
+	-- 			"<leader>av",
+	-- 			function()
+	-- 				require("sidekick.cli").send({ msg = "{selection}" })
+	-- 			end,
+	-- 			mode = { "x" },
+	-- 			desc = "Send Visual Selection",
+	-- 		},
+	-- 		{
+	-- 			"<leader>ap",
+	-- 			function()
+	-- 				require("sidekick.cli").prompt()
+	-- 			end,
+	-- 			mode = { "n", "x" },
+	-- 			desc = "Sidekick Select Prompt",
+	-- 		},
+	-- 		{
+	-- 			"<leader>ac",
+	-- 			function()
+	-- 				require("sidekick.cli").toggle({ name = "opencode", focus = true })
+	-- 			end,
+	-- 			desc = "Sidekick Toggle Opencode",
+	-- 		},
+	-- 	},
+	-- },
 	{
 		"CopilotC-Nvim/CopilotChat.nvim",
 		dependencies = {
@@ -606,21 +607,21 @@ require("lazy").setup({
 	{
 		"aaronik/treewalker.nvim",
 		config = function()
-			require('treewalker').setup({
+			require("treewalker").setup({
 				highlight = true,
 				highlight_duration = 250,
 			})
 
-			vim.keymap.set({ 'n', 'v' }, '<up>', '<cmd>Treewalker Up<cr>', { silent = true })
-			vim.keymap.set({ 'n', 'v' }, '<down>', '<cmd>Treewalker Down<cr>', { silent = true })
-			vim.keymap.set({ 'n', 'v' }, '<left>', '<cmd>Treewalker Left<cr>', { silent = true })
-			vim.keymap.set({ 'n', 'v' }, '<right>', '<cmd>Treewalker Right<cr>', { silent = true })
+			vim.keymap.set({ "n", "v" }, "<up>", "<cmd>Treewalker Up<cr>", { silent = true })
+			vim.keymap.set({ "n", "v" }, "<down>", "<cmd>Treewalker Down<cr>", { silent = true })
+			vim.keymap.set({ "n", "v" }, "<left>", "<cmd>Treewalker Left<cr>", { silent = true })
+			vim.keymap.set({ "n", "v" }, "<right>", "<cmd>Treewalker Right<cr>", { silent = true })
 
 			-- swapping
-			vim.keymap.set('n', '<leader><up>', '<cmd>Treewalker SwapUp<cr>', { silent = true })
-			vim.keymap.set('n', '<leader><right>', '<cmd>Treewalker SwapRight<cr>', { silent = true })
-			vim.keymap.set('n', '<leader><left>', '<cmd>Treewalker SwapLeft<cr>', { silent = true })
-			vim.keymap.set('n', '<leader><down>', '<cmd>Treewalker SwapDown<cr>', { silent = true })
+			vim.keymap.set("n", "<leader><up>", "<cmd>Treewalker SwapUp<cr>", { silent = true })
+			vim.keymap.set("n", "<leader><right>", "<cmd>Treewalker SwapRight<cr>", { silent = true })
+			vim.keymap.set("n", "<leader><left>", "<cmd>Treewalker SwapLeft<cr>", { silent = true })
+			vim.keymap.set("n", "<leader><down>", "<cmd>Treewalker SwapDown<cr>", { silent = true })
 		end,
 	},
 	{ -- annotations like tsdoc
@@ -664,5 +665,80 @@ require("lazy").setup({
 		keys = {
 			{ "<leader>mm", "<cmd>MarkdownPreviewToggle<cr>", desc = "Toggle Markdown Preview" },
 		},
+	},
+	{
+		"nickjvandyke/opencode.nvim",
+		version = "*", -- Latest stable release
+		dependencies = { "folke/snacks.nvim" },
+		config = function()
+			require("snacks").setup({
+				input = {
+					enabled = true, -- Enhances Ask
+				},
+				picker = {
+					enabled = true, -- Enhances Select
+					win = {
+						input = {
+							keys = {
+								["<a-o>"] = { "opencode_send", mode = { "n", "i" } },
+							},
+						},
+					},
+					actions = {
+						opencode_send = function(picker) ---@param picker snacks.Picker
+							local items = vim.tbl_map(function(item) ---@param item snacks.picker.Item
+								return item.file
+										and require("opencode").format({
+											path = item.file,
+											from = item.pos,
+											to = item.end_pos,
+										})
+									or item.text
+							end, picker:selected({ fallback = true }))
+
+							require("opencode").prompt(table.concat(items, ", ") .. " ")
+						end,
+					},
+				},
+			})
+			-- Configure blink.cmp to show completions in Ask from opencode.nvim's in-process LSP.
+			-- Only applicable when using snacks.input.
+			require("blink.cmp").setup({
+				sources = {
+					-- Either enable LSP (and optionally buffer) source globally
+					default = { "lsp", "buffer" },
+					-- Or only for Ask
+					per_filetype = {
+						opencode_ask = { "lsp", "buffer" },
+					},
+					-- Display buffer completions (if included above) when no LSP completions are available
+					providers = { lsp = { fallbacks = {} } },
+				},
+			})
+			---@type opencode.Opts
+			vim.g.opencode_opts = {
+
+			}
+
+			-- Recommended/example keymaps
+			vim.keymap.set({ "n", "x" }, "<C-a>", function()
+				require("opencode").ask("@this: ")
+			end, { desc = "Ask OpenCode…" })
+			vim.keymap.set({ "n", "x" }, "<C-x>", function()
+				require("opencode").select()
+			end, { desc = "Select OpenCode…" })
+			vim.keymap.set({ "n", "x" }, "go", function()
+				return require("opencode").operator("@this ")
+			end, { desc = "Append range to OpenCode", expr = true })
+			vim.keymap.set({ "n" }, "goo", function()
+				return require("opencode").operator("@this ") .. "_"
+			end, { desc = "Append line to OpenCode", expr = true })
+			vim.keymap.set({ "n" }, "<S-C-u>", function()
+				require("opencode").command("session.half.page.up")
+			end, { desc = "Scroll OpenCode up" })
+			vim.keymap.set({ "n" }, "<S-C-d>", function()
+				require("opencode").command("session.half.page.down")
+			end, { desc = "Scroll OpenCode down" })
+		end,
 	},
 })

@@ -3,25 +3,29 @@ local lsp_plugins_table = {
 		-- Main LSP Configuration
 		"neovim/nvim-lspconfig",
 		config = function()
-			require("mason-lspconfig").setup({
-				ensure_installed = {
-					"vtsls",
-					"vue_ls",
-					"eslint",
-					"tailwindcss",
-					"emmet_language_server",
-					"lua_ls",
-					"hyprls",
-					"gopls",
-					"clangd",
-					"jdtls",
-					"astro"
-				},
-				automatic_enable = true,
-				automatic_installation = true,
-			})
+			-- `vim.lsp.enable`/`vim.lsp.config` (native LSP) call `root_dir` with the
+			-- async signature `function(bufnr, on_dir)`. `lspconfig.util.root_pattern`
+			-- returns the legacy sync signature `function(startpath): string` and never
+			-- invokes `on_dir`, so the client silently never starts. This wraps the
+			-- native `vim.fs.root()` to bridge glob-style markers to the async API.
+			local function root_dir(patterns)
+				return function(bufnr, on_dir)
+					local root = vim.fs.root(bufnr, function(name, path)
+						for _, pattern in ipairs(patterns) do
+							if name == pattern or vim.fn.glob(path .. "/" .. pattern, true, false) ~= "" then
+								return true
+							end
+						end
+
+						return false
+					end)
+
+					on_dir(root or vim.fn.getcwd())
+				end
+			end
 
 			vim.lsp.config("tailwindcss", {
+				root_dir = root_dir({ "tailwind.config.*", "postcss.config.*", "package.json" }),
 				filetypes = {
 					"aspnetcorerazor",
 					"astro",
@@ -74,7 +78,7 @@ local lsp_plugins_table = {
 					"svelte",
 					"templ",
 				},
-				{
+				settings = {
 					tailwindCSS = {
 						classAttributes = { "class", "className", "class:list", "classList", "ngClass" },
 						includeLanguages = {
@@ -103,9 +107,11 @@ local lsp_plugins_table = {
 
 			vim.lsp.config("vue_ls", {
 				filetypes = { "vue" },
+				root_dir = root_dir({ "nuxt.config.ts", "nuxt.config.js", "package.json" }),
 			})
 
 			vim.lsp.config("vtsls", {
+				root_dir = root_dir({ "nuxt.config.ts", "nuxt.config.js", "tsconfig.json", "package.json" }),
 				filetypes = {
 					"javascript",
 					"javascriptreact",
@@ -152,11 +158,12 @@ local lsp_plugins_table = {
 					"html",
 					"javascript",
 					"javascriptreact",
+					"typescript",
+					"typescriptreact",
 					"less",
 					"sass",
 					"scss",
 					"pug",
-					"typescriptreact",
 					"vue",
 				},
 			})
@@ -187,6 +194,29 @@ local lsp_plugins_table = {
 			vim.lsp.config("clangd", {})
 			vim.lsp.config("gopls", {})
 			vim.lsp.config("astro", {})
+
+			-- automatic_enable calls vim.lsp.enable(), which immediately re-checks
+			-- already-open buffers against the *currently resolved* config. It must
+			-- run after all vim.lsp.config(...) customizations above, otherwise
+			-- already-open buffers get attached using un-customized defaults
+			-- (e.g. narrower root_markers) and never retry with the real config.
+			require("mason-lspconfig").setup({
+				ensure_installed = {
+					"vtsls",
+					"vue_ls",
+					"eslint",
+					"tailwindcss",
+					"emmet_language_server",
+					"lua_ls",
+					"hyprls",
+					"gopls",
+					"clangd",
+					"jdtls",
+					"astro"
+				},
+				automatic_enable = true,
+				automatic_installation = true,
+			})
 
 			vim.api.nvim_create_autocmd("LspAttach", {
 				group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
@@ -341,7 +371,12 @@ local lsp_plugins_table = {
 			-- NOTE: `opts = {}` is the same as calling `require('mason').setup({})`
 			{ "mason-org/mason.nvim", opts = {} },
 			"mason-org/mason-lspconfig.nvim",
-			"WhoIsSethDaniel/mason-tool-installer.nvim",
+			{
+				"WhoIsSethDaniel/mason-tool-installer.nvim",
+				opts = {
+					ensure_installed = { "stylua" },
+				},
+			},
 			"nvim-java/nvim-java",
 
 			-- Useful status updates for LSP.
